@@ -6,16 +6,17 @@
 #include <setjmp.h>
 #define MAX_THREADS     128
 #define MIN_STACK       64 * 1024
-#define TIMER           (useconds_t) 1000
+#define TIMER           (useconds_t) 10000
 typedef enum thread_state {
-    RUNNING, READY, SUSPENDED, FINISHED, SLEEPING, BLOCKED_JOIN, DEAD
+    RUNNING = 0, READY, SUSPENDED, FINISHED, SLEEPING, BLOCKED_JOIN, DEAD
 } thread_state;
 
 typedef struct timeval pth_time_t;
+typedef unsigned long int mthread_t;
 
 typedef struct mthread {
     /* Thread ID */
-    pid_t tid;
+    unsigned long int tid;
     /* Thread State */
     thread_state state;
 
@@ -33,13 +34,14 @@ typedef struct mthread {
 
     /* Whether thread is joinable or detached */
     int joinable;
-    /* The TID of the thread to wait for */
-    int wait_on;
+    /* The TID of the thread to be joined to once finished */
+    long int joined_on;
+    /* The TID of the thread for whom we are waiting */
+    long int wait_for;
     /* Joining argument */
     void *join_arg;
 
 } mthread;
-typedef mthread * mthread_t;
 
 /* Perform any initialization needed. Should be called exactly
  * once, before any other mthread functions.
@@ -60,7 +62,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg);
  * if the thread was not created with the joinable
  * flag set or if it has already been joined.
  */
-int thread_join(pid_t tid, void **retval);
+int thread_join(mthread_t thread, void **retval);
 
 /* Exit the calling thread with return value ret. */
 void thread_exit(void *retval);
