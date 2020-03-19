@@ -17,7 +17,7 @@ int isempty(queue *q) {
     return (q->head == NULL);
 }
 
-void enqueue(queue *q, mthread_t thd) {
+void enqueue(queue *q, mthread *thd) {
     node *tmp = malloc(sizeof(node));
     tmp->thd = thd;
     tmp->next = NULL;
@@ -34,12 +34,12 @@ void enqueue(queue *q, mthread_t thd) {
     return;
 }
 
-mthread_t dequeue(queue *q) {
+mthread *dequeue(queue *q) {
     if(isempty(q))
         return NULL;
     
     node *tmp = q->head;
-    mthread_t n = q->head->thd;
+    mthread *n = q->head->thd;
     
     q->head = q->head->next;
     q->count--;
@@ -59,13 +59,13 @@ void display(queue *q) {
     node *tmp = q->head;
     printf("Queue: ");
     for(int i = 0; i < q->count; i++) {
-        printf("%d  ", tmp->thd->tid);
+        printf("%lu  ", tmp->thd->tid);
         tmp=tmp->next;
     }
     printf("\n");
 }
 
-mthread_t search_on_tid(queue *q, pid_t tid) {
+mthread *search_on_tid(queue *q, unsigned long int tid) {
     if(isempty(q))
         return NULL;
     
@@ -89,17 +89,18 @@ void destroy(queue *q) {
     
     return;
 }
-int main() {
+
+/* int main() {
     queue *q;
     q = malloc(sizeof(queue));
-    mthread_t thd = malloc(sizeof(mthread));
+    mthread *thd = malloc(sizeof(mthread));
     thd->tid = 0;
     initialize(q);
     enqueue(q,thd);
     printf("0 enq\n");
     display(q);
  
-    mthread_t thd2 = malloc(sizeof(mthread));
+    mthread *thd2 = malloc(sizeof(mthread));
     thd->tid = 1;
     enqueue(q,thd2);
     printf("1 enq\n");
@@ -119,4 +120,4 @@ int main() {
     display(q);
 
     return 0;
-}
+} */

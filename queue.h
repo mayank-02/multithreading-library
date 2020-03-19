@@ -1,7 +1,7 @@
 #include "mthread.h" 
 
 typedef struct node {
-    mthread_t thd;
+    mthread *thd;
     struct node *next;
 } node;
 
@@ -13,8 +13,8 @@ typedef struct queue {
 
 void initialize(queue *q);
 int isempty(queue *q);
-void enqueue(queue *q, mthread_t thd);
-mthread_t dequeue(queue *q);
+void enqueue(queue *q, mthread *thd);
+mthread *dequeue(queue *q);
 void display(queue *q);
-mthread_t search_on_tid(queue *q, pid_t tid);
+mthread *search_on_tid(queue *q, unsigned long int tid);
 void destroy(queue *q);
