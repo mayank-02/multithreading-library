@@ -6,12 +6,11 @@
 #include <setjmp.h>
 #define MAX_THREADS     128
 #define MIN_STACK       64 * 1024
-#define TIMER           (useconds_t) 10000
+#define TIMER           (suseconds_t) 10000
 typedef enum thread_state {
     RUNNING = 0, READY, SUSPENDED, FINISHED, SLEEPING, BLOCKED_JOIN, DEAD
 } thread_state;
 
-typedef struct timeval pth_time_t;
 typedef unsigned long int mthread_t;
 
 typedef struct mthread {

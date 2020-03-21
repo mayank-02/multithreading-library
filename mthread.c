@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/time.h>
 #include "mthread.h"
 #include "queue.h"
 
@@ -16,7 +17,8 @@
 static queue   *ready_q;     /* Threads which are ready or blocked for another thread */
 static queue   *finish_q;    /* Threads which finished but are waiting to be joined */
 static mthread *current;     /* Thread which is running */
-static uint64_t unique = 0; /* To allocate unique Thread IDs */
+static uint64_t unique = 0;  /* To allocate unique Thread IDs */
+struct itimerval timer;      /* Timer for periodic SIGVTALRM signals */
 
 /* Tips
  * 1. Use assert()
@@ -41,16 +43,6 @@ static uint64_t unique = 0; /* To allocate unique Thread IDs */
 		);
 		return ret;
 	}
-
-	/* address_t mangle(address_t addr)
-	{
-		address_t ret;
-		asm volatile("xor    %%fs:0x30,%0\n"
-					"rol    $0x11,%0\n"
-					: "=g" (ret)
-					: "0" (addr));
-		return ret;
-	} */
 #else
 	/* Pointer mangling for 32 bit Intel architecture */
 	typedef unsigned int address_t;
@@ -67,14 +59,21 @@ static uint64_t unique = 0; /* To allocate unique Thread IDs */
 	}
 #endif
 
-void interrupt_enable(useconds_t timer) {
-    dprintf("Timer interrupts enabled for every %ums\n", timer);
-    ualarm(timer, timer);
+void interrupt_enable() {
+    dprintf("Timer interrupts enabled for every %lums\n", TIMER);
+    /* ualarm(TIMER, TIMER); */
+    /* This timer counts down against the user-mode CPU time consumed by the process */
+	timer.it_value.tv_usec = TIMER;
+	timer.it_interval.tv_usec = TIMER;
+    setitimer(ITIMER_VIRTUAL, &timer, 0);
 }
 
 void interrupt_disable() {
     dprintf("Timer interrupts disabled\n");
-    ualarm(0, 0);
+    /* ualarm(0, 0); */
+	timer.it_value.tv_usec = 0;
+	timer.it_interval.tv_sec = 0;
+    setitimer(ITIMER_VIRTUAL, &timer, 0);
 }
 
 void free_resources(mthread *thread) {
@@ -135,7 +134,7 @@ void wrapper(void) {
 }
 
 void scheduler(int signum) {
-    dprintf("scheduler: SIGALRM received\n");
+    dprintf("scheduler: SIGVTALRM received\n");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable();
     display(ready_q);
@@ -160,7 +159,7 @@ void scheduler(int signum) {
     current->state = RUNNING;
 
     /* Enable timer interrupts before loading next thread */
-    interrupt_enable(TIMER);
+    interrupt_enable();
 
     dprintf("scheduler: Loading context of Thread TID = %lu\n", current->tid);
     dprintf("scheduler: current %p\n", current);
@@ -193,10 +192,13 @@ int thread_init(void) {
     sigsetjmp(current->context, 1);
 
     /* Setting up signal handler */
-    signal(SIGALRM, scheduler);
+	signal(SIGVTALRM, scheduler);
+    /* signal(SIGVTALRM, scheduler); */
 
     /* Setup timers for regular interrupts */
-    interrupt_enable(TIMER);
+    timer.it_value.tv_sec = 0;
+	timer.it_interval.tv_sec = 0;
+    interrupt_enable();
 
     dprintf("thread_init: Exited\n");
     return 0;
@@ -241,7 +243,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     display(ready_q);
     *thread = tmp->tid;
 
-    interrupt_enable(TIMER);
+    interrupt_enable();
     dprintf("thread_create: Created Thread with TID = %lu and put in ready queue\n", tmp->tid);
     return 0;
 }
@@ -288,8 +290,8 @@ int thread_join(mthread_t tid, void **retval) {
     tmp->joined_on = current->tid;
     current->wait_for = tid;
     current->state = BLOCKED_JOIN;
-    interrupt_enable(TIMER);
-    kill(getpid(), SIGALRM);
+    interrupt_enable();
+    kill(getpid(), SIGVTALRM);
     
     dprintf("thread_join: Exited\n");
     return 0;
@@ -316,8 +318,8 @@ void thread_exit(void *retval) {
 
                 current->state = BLOCKED_JOIN;
 
-                interrupt_enable(TIMER);
-                kill(getpid(), SIGALRM);
+                interrupt_enable();
+                kill(getpid(), SIGVTALRM);
             }
             destroy(ready_q);
             destroy(finish_q);
@@ -345,7 +347,7 @@ void thread_exit(void *retval) {
     current->state = RUNNING;
 
     /* Enable timer interrupts before loading next thread */
-    interrupt_enable(TIMER);
+    interrupt_enable();
     dprintf("thread_exit: Loading context of Thread TID = %lu\n", current->tid);
 
     /* Load context and signal masks */
