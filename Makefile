@@ -2,8 +2,16 @@
 # gcc  mthread.o -shared -o mthread.so
 # gcc -o main main.c -L. -R. -lmthread
 
-program: test1.o mthread.o queue.o
-		gcc test1.o mthread.o queue.o -o program -g -Wall
+program: test3.o test2.o test1.o mthread.o queue.o
+		gcc test1.o mthread.o queue.o -o test1 -g -Wall
+		gcc test2.o mthread.o queue.o -o test2 -g -Wall -lm
+		gcc test3.o mthread.o queue.o -o test3 -g -Wall
+
+test3.o: test3.c
+		gcc test3.c -c -g -Wall
+
+test2.o: test2.c
+		gcc test2.c -c -g -Wall -lm
 
 test1.o: test1.c
 		gcc test1.c -c -g -Wall
@@ -18,4 +26,4 @@ run:
 	./program
 
 clean:
-	rm *.o program
+	rm *.o test1 test2 test3
