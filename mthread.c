@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <sys/time.h>
 #include "mthread.h"
 #include "queue.h"
+#include "interrupt.h"
 
 /* For debugging purposes */
 #define DEBUG 0
@@ -18,7 +18,7 @@ static queue   *ready_q;     /* Threads which are ready or blocked for another t
 static queue   *finish_q;    /* Threads which finished but are waiting to be joined */
 static mthread *current;     /* Thread which is running */
 static uint64_t unique = 0;  /* To allocate unique Thread IDs */
-struct itimerval timer;      /* Timer for periodic SIGVTALRM signals */
+mthread_timer_t timer;      /* Timer for periodic SIGVTALRM signals */
 
 /* Tips
  * 1. Use assert()
@@ -59,22 +59,6 @@ struct itimerval timer;      /* Timer for periodic SIGVTALRM signals */
 	}
 #endif
 
-void interrupt_enable() {
-    dprintf("Timer interrupts enabled for every %lums\n", TIMER);
-    /* ualarm(TIMER, TIMER); */
-    /* This timer counts down against the user-mode CPU time consumed by the process */
-	timer.it_value.tv_usec = TIMER;
-	timer.it_interval.tv_usec = TIMER;
-    setitimer(ITIMER_VIRTUAL, &timer, 0);
-}
-
-void interrupt_disable() {
-    dprintf("Timer interrupts disabled\n");
-    /* ualarm(0, 0); */
-	timer.it_value.tv_usec = 0;
-	timer.it_interval.tv_sec = 0;
-    setitimer(ITIMER_VIRTUAL, &timer, 0);
-}
 
 void free_resources(mthread *thread) {
     dprintf("free_resources: Thread with TID %lu freed\n", thread->tid);
@@ -137,7 +121,7 @@ void wrapper(void) {
 void scheduler(int signum) {
     dprintf("scheduler: SIGVTALRM received\n");
     /* Disable timer interrupts when scheduler is running */
-    interrupt_disable();
+    interrupt_disable(&timer);
     assert(current->state == RUNNING || current->state == BLOCKED_JOIN);
 
     /* Save context and signal masks */
@@ -159,7 +143,7 @@ void scheduler(int signum) {
     current->state = RUNNING;
 
     /* Enable timer interrupts before loading next thread */
-    interrupt_enable();
+    interrupt_enable(&timer);
 
     dprintf("scheduler: Loading context of Thread TID = %lu\n", current->tid);
     dprintf("scheduler: current %p\n", current);
@@ -188,17 +172,13 @@ int thread_init(void) {
     current->wait_for = -1;
     current->join_arg = NULL;
 
-    /* Save context for main thread */
-    // sigsetjmp(current->context, 1);
-
     /* Setting up signal handler */
 	signal(SIGVTALRM, scheduler);
-    /* signal(SIGVTALRM, scheduler); */
 
     /* Setup timers for regular interrupts */
     timer.it_value.tv_sec = 0;
 	timer.it_interval.tv_sec = 0;
-    interrupt_enable();
+    interrupt_enable(&timer);
 
     dprintf("thread_init: Exited\n");
     return 0;
@@ -213,7 +193,7 @@ int thread_init(void) {
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
     dprintf("thread_create: Started\n");
 
-    interrupt_disable();
+    interrupt_disable(&timer);
     if(unique == MAX_THREADS) {
         printf("A  system-imposed  limit on the number of threads was encountered.\n");
         return EAGAIN;
@@ -242,7 +222,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     enqueue(ready_q, tmp);
     *thread = tmp->tid;
 
-    interrupt_enable();
+    interrupt_enable(&timer);
     dprintf("thread_create: Created Thread with TID = %lu and put in ready queue\n", tmp->tid);
     return 0;
 }
@@ -255,7 +235,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
  */
 int thread_join(mthread_t tid, void **retval) {
     dprintf("thread_join: Thread TID = %lu wants to wait on TID = %lu\n", current->tid, tid);
-    interrupt_disable();
+    interrupt_disable(&timer);
     mthread *tmp;
     tmp = search_on_tid(ready_q, tid);
     
@@ -289,7 +269,7 @@ int thread_join(mthread_t tid, void **retval) {
     tmp->joined_on = current->tid;
     current->wait_for = tid;
     current->state = BLOCKED_JOIN;
-    interrupt_enable();
+    interrupt_enable(&timer);
     kill(getpid(), SIGVTALRM);
     /* Wait for target thread to finish
         free target thread resources
@@ -301,7 +281,7 @@ int thread_join(mthread_t tid, void **retval) {
 
 /* Exit the calling thread with return value ret. */
 void thread_exit(void *retval) {
-    interrupt_disable();
+    interrupt_disable(&timer);
     // dprintf("thread_exit: Thread  TID = %lu is exiting\n", current->tid);
     current->state = FINISHED;
     current->result = retval;
@@ -320,7 +300,7 @@ void thread_exit(void *retval) {
 
                 current->state = BLOCKED_JOIN;
 
-                interrupt_enable();
+                interrupt_enable(&timer);
                 kill(getpid(), SIGVTALRM);
             }
             destroy(ready_q);
@@ -349,7 +329,7 @@ void thread_exit(void *retval) {
     current->state = RUNNING;
 
     /* Enable timer interrupts before loading next thread */
-    interrupt_enable();
+    interrupt_enable(&timer);
     dprintf("thread_exit: Loading context of Thread TID = %lu\n", current->tid);
 
     /* Load context and signal masks */
@@ -359,33 +339,5 @@ void thread_exit(void *retval) {
 int thread_kill(mthread_t thread, int sig) {
     dprintf("thread_kill: Started\n");
     dprintf("thread_kill: Exited\n");
-    return 0;
-}
-
-int thread_spin_init(mthread_spinlock_t *lock) {
-    *lock = 0;
-    return 0;
-}
-
-int thread_spin_lock(mthread_spinlock_t *lock) {
-    while(*lock == 1);
-    *lock = 1;
-    return 0;
-}
-
-int thread_spin_trylock(mthread_spinlock_t *lock) {
-    if(*lock)
-        return EBUSY;
-    else
-        return 0;
-}
-
-int thread_spin_unlock(mthread_spinlock_t *lock) {
-    assert(*lock == 1);
-    *lock = 0;
-    return 0;
-}
-
-int thread_spin_destroy(mthread_spinlock_t *lock) {
     return 0;
 }

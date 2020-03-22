@@ -1,18 +1,17 @@
-#ifndef _MTHREADS_H_
-#define _MTHREADS_H_
+#ifndef _MTHREAD_H_
+#define _MTHREAD_H_
 
 #include <sys/types.h>
 #include <ucontext.h>
 #include <setjmp.h>
 #define MAX_THREADS     128
 #define MIN_STACK       64 * 1024
-#define TIMER           (suseconds_t) 10000
+
 typedef enum thread_state {
     RUNNING = 0, READY, SUSPENDED, FINISHED, SLEEPING, BLOCKED_JOIN, DEAD
 } thread_state;
 
 typedef unsigned long int mthread_t;
-typedef volatile int mthread_spinlock_t;
 
 typedef struct mthread {
     /* Thread ID */
@@ -66,16 +65,6 @@ int thread_join(mthread_t thread, void **retval);
 
 /* Exit the calling thread with return value ret. */
 void thread_exit(void *retval);
-
-int thread_spin_init(pthread_spinlock_t *lock);
-
-int thread_spin_lock(mthread_spinlock_t *lock);
-
-int thread_spin_trylock(mthread_spinlock_t *lock);
-
-int thread_spin_unlock(mthread_spinlock_t *lock);
-
-int thread_spin_destroy(mthread_spinlock_t *lock);
 
 int thread_kill(mthread_t thread, int sig);
 
