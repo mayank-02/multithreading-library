@@ -12,6 +12,7 @@ typedef enum thread_state {
 } thread_state;
 
 typedef unsigned long int mthread_t;
+typedef volatile int mthread_spinlock_t;
 
 typedef struct mthread {
     /* Thread ID */
@@ -66,16 +67,16 @@ int thread_join(mthread_t thread, void **retval);
 /* Exit the calling thread with return value ret. */
 void thread_exit(void *retval);
 
-// int thread_lock(mthread_lock_t *lock); // a spinlock
+int thread_spin_init(pthread_spinlock_t *lock);
 
-// int thread_unlock(mthread_lock_t *lock);  // spin-unlock
+int thread_spin_lock(mthread_spinlock_t *lock);
+
+int thread_spin_trylock(mthread_spinlock_t *lock);
+
+int thread_spin_unlock(mthread_spinlock_t *lock);
+
+int thread_spin_destroy(mthread_spinlock_t *lock);
 
 int thread_kill(mthread_t thread, int sig);
 
-/* Signal handler for SIGALRM signal
- * Schedules next READY thread by swapping context at user level
- */
-void scheduler(int signum);
-
-void wrapper(void);
 #endif
