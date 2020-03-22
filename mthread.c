@@ -112,7 +112,8 @@ mthread * get_next_ready_thread(void) {
                 /* ASSERT: Target thread finished execution */
 
                 /* Free resources of the thread we waited for */
-                free_resources(temp);
+                /* This is WRONG */
+                /* free_resources(temp); */
 
                 /* Change state of thread from BLOCKED_JOIN to READY */
                 runner->state = READY;
@@ -137,15 +138,14 @@ void scheduler(int signum) {
     dprintf("scheduler: SIGVTALRM received\n");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable();
-    display(ready_q);
     assert(current->state == RUNNING || current->state == BLOCKED_JOIN);
 
-    if(isempty(ready_q) && current->tid == 0 && current->wait_for == -1) {
-        exit(0);
-    }
-    dprintf("scheduler: Saving context of Thread TID = %lu\n", current->tid);
     /* Save context and signal masks */
-    sigsetjmp(current->context, 1);
+    if(sigsetjmp(current->context, 1) == 1) {
+        return;
+    }
+
+    dprintf("scheduler: Saving context of Thread TID = %lu\n", current->tid);
 
     /* Change state of current thread from RUNNING to READY*/
     if(current->state == RUNNING)
@@ -189,7 +189,7 @@ int thread_init(void) {
     current->join_arg = NULL;
 
     /* Save context for main thread */
-    sigsetjmp(current->context, 1);
+    // sigsetjmp(current->context, 1);
 
     /* Setting up signal handler */
 	signal(SIGVTALRM, scheduler);
@@ -240,7 +240,6 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
 	tmp->context[0].__jmpbuf[JB_PC] = mangle((long int) wrapper);
 
     enqueue(ready_q, tmp);
-    display(ready_q);
     *thread = tmp->tid;
 
     interrupt_enable();
@@ -292,7 +291,10 @@ int thread_join(mthread_t tid, void **retval) {
     current->state = BLOCKED_JOIN;
     interrupt_enable();
     kill(getpid(), SIGVTALRM);
-    
+    /* Wait for target thread to finish
+        free target thread resources
+        return thread value    
+     */
     dprintf("thread_join: Exited\n");
     return 0;
 }
@@ -340,7 +342,7 @@ void thread_exit(void *retval) {
     }
 
     if(isempty(ready_q)) {
-        dprintf("Ready queue is empty and so we say GOODBYE!\n");
+        printf("Ready queue is empty and so we say GOODBYE!\n");
         exit(0);
     }
     current = get_next_ready_thread();
@@ -354,14 +356,36 @@ void thread_exit(void *retval) {
     siglongjmp(current->context, 1);
 }
 
-/* int thread_lock(mthread_lock_t *lock) {
-}
-
-int thread_unlock(mthread_lock_t *lock) {
-} */
-
 int thread_kill(mthread_t thread, int sig) {
     dprintf("thread_kill: Started\n");
     dprintf("thread_kill: Exited\n");
+    return 0;
+}
+
+int thread_spin_init(mthread_spinlock_t *lock) {
+    *lock = 0;
+    return 0;
+}
+
+int thread_spin_lock(mthread_spinlock_t *lock) {
+    while(*lock == 1);
+    *lock = 1;
+    return 0;
+}
+
+int thread_spin_trylock(mthread_spinlock_t *lock) {
+    if(*lock)
+        return EBUSY;
+    else
+        return 0;
+}
+
+int thread_spin_unlock(mthread_spinlock_t *lock) {
+    assert(*lock == 1);
+    *lock = 0;
+    return 0;
+}
+
+int thread_spin_destroy(mthread_spinlock_t *lock) {
     return 0;
 }
