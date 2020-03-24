@@ -15,10 +15,10 @@
 #define dprintf(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
-static queue   *task_q;     /* Queue containing tasks for all threads */
-static mthread *current;    /* Thread which is running */
-static uint64_t unique = 0; /* To allocate unique Thread IDs */
-mthread_timer_t timer;      /* Timer for periodic SIGVTALRM signals */
+static queue   *task_q;       /* Queue containing tasks for all threads */
+static mthread *current;      /* Thread which is running */
+static uint64_t unique = 0;   /* To allocate unique Thread IDs */
+static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
 
 /* Tips
  * 1. Use assert()
@@ -27,7 +27,7 @@ mthread_timer_t timer;      /* Timer for periodic SIGVTALRM signals */
  * that link with your thread library.
  */
 
-mthread * get_next_ready_thread(void) {
+static mthread * get_next_ready_thread(void) {
     dprintf("get_next_ready_thread: started\n");
 
     mthread *runner, *temp;
@@ -59,20 +59,27 @@ mthread * get_next_ready_thread(void) {
             case FINISHED:
                 enqueue(task_q, runner);
                 break;
+            case RUNNING:
+                break;
         }
     }
 
     return NULL;
 }
 
-void thread_start(void) {
+static void cleanup_handler(void) {
+    destroy(task_q);
+    free(current);
+}
+
+static void thread_start(void) {
     dprintf("thread_start: entered\n");
     current->result = current->start_routine(current->arg);
     thread_exit(current->result);
     dprintf("thread_start: exited\n");
 }
 
-void scheduler(int signum) {
+static void scheduler(int signum) {
     dprintf("scheduler: SIGVTALRM received\n");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable(&timer);
@@ -104,9 +111,6 @@ void scheduler(int signum) {
     siglongjmp(current->context, 1);
 }
 
-/* Perform any initialization needed. Should be called exactly
- * once, before any other mthread functions.
- */
 int thread_init(void) {
     dprintf("thread_init: Started\n");
 
@@ -133,10 +137,6 @@ int thread_init(void) {
     return 0;
 }
 
-/* Create a new thread starting at the routine given, which will
- * be passed arg. The new thread does not necessarily execute immediatly
- * (as in, thread_create shouldn't force a switch to the new thread).
- */
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
     dprintf("thread_create: Started\n");
 
@@ -177,10 +177,6 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     return 0;
 }
 
-/* Wait until the specified thread has exited.
- * Returns the value returned by that thread's
- * start function.
- */
 int thread_join(mthread_t tid, void **retval) {
     dprintf("thread_join: Thread TID = %lu wants to wait on TID = %lu\n", current->tid, tid);
     interrupt_disable(&timer);
@@ -253,17 +249,12 @@ void thread_yield(void) {
     kill(getpid(), SIGVTALRM);
 }
 
-void cleanup_handler(void) {
-    destroy(task_q);
-    free(current);
-}
-
 int thread_kill(mthread_t thread, int sig) {
     dprintf("thread_kill: Started\n");
-    if (thread == NULL || thread == current->tid || (sig < 0 || sig > NSIG))
+    if (thread == current->tid || (sig < 0 || sig > NSIG))
         return EINVAL;
 
-    mthread *target = search_by_tid(task_q, thread);
+    mthread *target = search_on_tid(task_q, thread);
     if(target == NULL)
         return EINVAL;
 
