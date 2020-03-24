@@ -29,17 +29,11 @@ typedef struct mthread {
     /* Context of the thread */
     jmp_buf context;
     char stack[MIN_STACK];
-    // ucontext_t *context;
 
-    /* Whether thread is joinable or detached */
-    int joinable;
     /* The TID of the thread to be joined to once finished */
     long int joined_on;
     /* The TID of the thread for whom we are waiting */
     long int wait_for;
-    /* Joining argument */
-    void *join_arg;
-
 } mthread;
 
 /* Perform any initialization needed. Should be called exactly
