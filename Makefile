@@ -22,7 +22,7 @@ interrupt.o: interrupt.c interrupt.h
 spin_lock.o: spin_lock.c spin_lock.h
 		gcc spin_lock.c -c -g -Wall
 
-mthread.o: mthread.c mthread.h interrupt.c interrupt.h
+mthread.o: mthread.c mthread.h interrupt.c interrupt.h mangle.h
 		gcc mthread.c interrupt.c -c -g -Wall
 
 queue.o: queue.c queue.h
