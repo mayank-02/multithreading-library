@@ -27,8 +27,6 @@ mthread_timer_t timer;      /* Timer for periodic SIGVTALRM signals */
  * that link with your thread library.
  */
 
-
-
 mthread * get_next_ready_thread(void) {
     dprintf("get_next_ready_thread: started\n");
 
@@ -38,34 +36,32 @@ mthread * get_next_ready_thread(void) {
     while(i--) {
         runner = dequeue(task_q);
 
-        assert(runner->state == READY || runner->state == BLOCKED_JOIN || runner->state == FINISHED);
-
-        if(runner->state == READY) {
-            dprintf("get_next_ready_thread: Returning thread TID = %lu\n", runner->tid);
-            return runner;
-        }
-        else if(runner->state == BLOCKED_JOIN) {
-            /* Check if the thread it is waiting for has ended */
-            temp = search_on_tid(task_q, runner->wait_for);
-            if(temp->state == FINISHED) {
-                /* ASSERT: Target thread finished execution */                
-                /* Change state of thread from BLOCKED_JOIN to READY */
-                runner->state = READY;
-                runner->wait_for = -1;
+        switch(runner->state) {
+            case READY:
+                dprintf("get_next_ready_thread: Returning thread TID = %lu\n", runner->tid);
                 return runner;
-            }
-            else {
-                /* ASSERT: Target thread didn't finish execution */
-                /* So put thread back into queue */
+            case WAITING:
+                /* Check if the thread it is waiting for has ended */
+                temp = search_on_tid(task_q, runner->wait_for);
+                if(temp->state == FINISHED) {
+                    /* Change state of thread from WAITING to READY */
+                    runner->state = READY;
+                    runner->wait_for = -1;
+                    return runner;
+                }
+                else {
+                    /* Put thread back into queue */
+                    enqueue(task_q, runner);
+                    dprintf("get_next_ready_thread: Thread TID = %lu still waiting for TID = %ld\n", runner->tid, runner->wait_for);
+                }
+                break;
+            case SUSPENDED:
+            case FINISHED:
                 enqueue(task_q, runner);
-                dprintf("get_next_ready_thread: Thread TID = %lu still waiting for TID = %ld\n", runner->tid, runner->wait_for);
-            }
-        }
-        else if(runner->state == FINISHED) {
-            enqueue(task_q, runner);
+                break;
         }
     }
-    
+
     return NULL;
 }
 
@@ -80,7 +76,6 @@ void scheduler(int signum) {
     dprintf("scheduler: SIGVTALRM received\n");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable(&timer);
-    assert(current->state == RUNNING || current->state == BLOCKED_JOIN || current->state == FINISHED);
 
     /* Save context and signal masks */
     if(sigsetjmp(current->context, 1) == 1) {
@@ -141,13 +136,14 @@ int thread_init(void) {
 /* Create a new thread starting at the routine given, which will
  * be passed arg. The new thread does not necessarily execute immediatly
  * (as in, thread_create shouldn't force a switch to the new thread).
- * If the thread will be joined, the joinable flag should be set.
- * Otherwise, it should be 0.
  */
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
     dprintf("thread_create: Started\n");
 
     interrupt_disable(&timer);
+    if(thread == NULL)
+        return EFAULT;
+
     if(unique == MAX_THREADS) {
         printf("A  system-imposed  limit on the number of threads was encountered.\n");
         return EAGAIN;
@@ -158,6 +154,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
         printf("Insufficient resources to create another thread.\n");
         return EAGAIN;
     }
+
     tmp->tid = unique++;
     tmp->state = READY;
     tmp->start_routine = start_routine;
@@ -182,22 +179,20 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
 
 /* Wait until the specified thread has exited.
  * Returns the value returned by that thread's
- * start function.  Results are undefined if
- * if the thread was not created with the joinable
- * flag set or if it has already been joined.
+ * start function.
  */
 int thread_join(mthread_t tid, void **retval) {
     dprintf("thread_join: Thread TID = %lu wants to wait on TID = %lu\n", current->tid, tid);
     interrupt_disable(&timer);
     mthread *target;
     target = search_on_tid(task_q, tid);
-    
+
     /* Deadlock check */
     if(current->tid == tid) {
         printf("A deadlock was detected.\n");
         return EDEADLK;
     }
-    
+
     /* Thread exists check */
     if(target == NULL) {
         printf("No thread with the ID %lu could be found.\n", tid);
@@ -212,9 +207,11 @@ int thread_join(mthread_t tid, void **retval) {
 
     target->joined_on = current->tid;
     current->wait_for = tid;
-    current->state = BLOCKED_JOIN;
+    current->state = WAITING;
     interrupt_enable(&timer);
+
     while(target->state != FINISHED);
+
     if(retval) {
         *retval = target->result;
     }
@@ -222,7 +219,7 @@ int thread_join(mthread_t tid, void **retval) {
     return 0;
 }
 
-/* Exit the calling thread with return value ret. */
+/* Exit the calling thread with return value retval. */
 void thread_exit(void *retval) {
     interrupt_disable(&timer);
     current->state = FINISHED;
@@ -239,20 +236,59 @@ void thread_exit(void *retval) {
             enqueue(task_q, waiting_for);
             thread_join(waiting_for->tid, NULL);
         }
-        destroy(task_q);
-        free(current);
+        cleanup_handler();
         dprintf("thread_exit: All threads along with main thread exited\n");
         dprintf("thread_exit: Exiting program now\n");
         exit(0);
     }
 
     enqueue(task_q, current);
+
     interrupt_enable(&timer);
+
+    thread_yield();
+}
+
+void thread_yield(void) {
     kill(getpid(), SIGVTALRM);
+}
+
+void cleanup_handler(void) {
+    destroy(task_q);
+    free(current);
 }
 
 int thread_kill(mthread_t thread, int sig) {
     dprintf("thread_kill: Started\n");
+    if (thread == NULL || thread == current->tid || (sig < 0 || sig > NSIG))
+        return EINVAL;
+
+    mthread *target = search_by_tid(task_q, thread);
+    if(target == NULL)
+        return EINVAL;
+
+    switch(sig) {
+        case SIGINT:
+        case SIGQUIT:
+        case SIGKILL:
+        case SIGTERM:
+            target->state = FINISHED;
+            break;
+        case SIGALRM:
+        case SIGVTALRM:
+            return EINVAL;
+        case SIGCONT:
+            if(target->state == SUSPENDED)
+                target->state = READY;
+            break;
+        case SIGSTOP:
+        case SIGTSTP:
+            if(target->state == READY)
+                target->state = SUSPENDED;
+            break;
+        default:
+            break;
+    }
     dprintf("thread_kill: Exited\n");
     return 0;
 }
