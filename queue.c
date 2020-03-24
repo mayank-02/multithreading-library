@@ -52,6 +52,10 @@ mthread *dequeue(queue *q) {
     return(n);
 }
 
+int getcount(queue *q) {
+    return q->count;
+}
+
 void display(queue *q) {
     if(isempty(q))
         return;
