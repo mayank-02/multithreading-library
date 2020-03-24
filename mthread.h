@@ -2,13 +2,12 @@
 #define _MTHREAD_H_
 
 #include <sys/types.h>
-#include <ucontext.h>
 #include <setjmp.h>
 #define MAX_THREADS     128
 #define MIN_STACK       64 * 1024
 
 typedef enum thread_state {
-    RUNNING = 0, READY, SUSPENDED, FINISHED, SLEEPING, BLOCKED_JOIN, DEAD
+    RUNNING = 0, READY, SUSPENDED, FINISHED, WAITING
 } thread_state;
 
 typedef unsigned long int mthread_t;
@@ -30,36 +29,44 @@ typedef struct mthread {
     jmp_buf context;
     char stack[MIN_STACK];
 
-    /* The TID of the thread to be joined to once finished */
+    /* TID to be joined to once finished */
     long int joined_on;
-    /* The TID of the thread for whom we are waiting */
+    /* TID for whom we are waiting for */
     long int wait_for;
 } mthread;
 
-/* Perform any initialization needed. Should be called exactly
+/** 
+ * Perform any initialization needed. Should be called exactly
  * once, before any other mthread functions.
  */
 int thread_init(void);
 
-/* Create a new thread starting at the routine given, which will
- * be passed arg. The new thread does not necessarily execute immediatly
- * (as in, thread_create shouldn't force a switch to the new thread).
- * If the thread will be joined, the joinable flag should be set. 
- * Otherwise, it should be 0.
+/** 
+ * Create a new thread starting at the routine given, which will
+ * be passed arg. The new thread does not execute immediatly.
  */
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg);
 
-/* Wait until the specified thread has exited.
+/** 
+ * Wait until the specified thread has exited.
  * Returns the value returned by that thread's
- * start function.  Results are undefined if
- * if the thread was not created with the joinable
- * flag set or if it has already been joined.
+ * start function.
  */
 int thread_join(mthread_t thread, void **retval);
 
-/* Exit the calling thread with return value ret. */
+/** 
+ * Yield to scheduler
+ */
+void thread_yield(void);
+
+/** 
+ * Exit the calling thread with return value retval. 
+ */
 void thread_exit(void *retval);
 
+/** 
+ * Send signal specified by sig to thread
+ */
 int thread_kill(mthread_t thread, int sig);
 
 #endif
