@@ -93,35 +93,3 @@ void destroy(queue *q) {
     
     return;
 }
-
-/* int main() {
-    queue *q;
-    q = malloc(sizeof(queue));
-    mthread *thd = malloc(sizeof(mthread));
-    thd->tid = 0;
-    initialize(q);
-    enqueue(q,thd);
-    printf("0 enq\n");
-    display(q);
- 
-    mthread *thd2 = malloc(sizeof(mthread));
-    thd->tid = 1;
-    enqueue(q,thd2);
-    printf("1 enq\n");
-    display(q);
-    
-    
-    dequeue(q);
-    printf("1 dequeue\n");
-    display(q);
-
-    dequeue(q);
-    printf("0 dequeue\n");
-    display(q);
-
-    dequeue(q);
-    printf("Dummy dequeue\n");
-    display(q);
-
-    return 0;
-} */
