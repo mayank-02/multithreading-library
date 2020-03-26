@@ -1,6 +1,8 @@
 #ifndef _MTHREAD_H_
 #define _MTHREAD_H_
 
+#include <stdint.h>
+#include <sys/types.h>
 typedef pid_t mthread_t;
 
 typedef struct mthread {
@@ -17,8 +19,10 @@ typedef struct mthread {
     /* Base pointer to stack */
     void *base;
     /* Size of stack */
-    rlim_t stack_size;
+    uint64_t stack_size;
 
+    /* Has someone joined on it? */
+    int joined;
     /* Futex */
     uint32_t condition;
 } mthread;
