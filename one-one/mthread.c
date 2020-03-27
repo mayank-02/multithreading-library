@@ -18,6 +18,7 @@
 static int initialized = 0;
 static uint64_t nproc;
 static uint64_t stack_size;
+static uint64_t page_size;
 static queue * task_q;
 
 static uint64_t get_extant_process_limit(void) {
@@ -36,15 +37,11 @@ static uint64_t get_stack_size(void) {
     return limit.rlim_cur;
 }
 
-static long get_page_size() {
-    long page_size = sysconf(_SC_PAGESIZE);
-    // printf("Page Size: %ld\n", page_size);
-    return page_size;
+static uint64_t get_page_size() {
+    return sysconf(_SC_PAGESIZE);
 }
 
 static void * allocate_stack(uint64_t stack_size) {
-    long page_size = get_page_size();
-    
     void *base = mmap(NULL,
                       stack_size + page_size,
                       PROT_READ | PROT_WRITE,
@@ -64,7 +61,6 @@ static void * allocate_stack(uint64_t stack_size) {
 }
 
 static void deallocate_stack(void *base, size_t stack_size) {
-    long page_size = get_page_size();
     munmap(base - page_size, stack_size + page_size);
 }
 
@@ -85,23 +81,24 @@ static pid_t gettid(void) {
 }
 
 /**
- * Obtain information about calling thread. 
+ * Obtain information about calling thread.
  */
 static mthread *thread_self(void) {
     uint64_t ptr;
-    
+
     int err = arch_prctl(ARCH_GET_FS, &ptr);
     if(err == -1)
         return NULL;
-    
+
     return (mthread *)ptr;
 }
 
 static int thread_start(void *thread) {
     mthread *t = (mthread *)thread;
+
     t->result = t->start_routine(t->arg);
-    thread_exit(t->result);
-    return 0; 
+
+    return 0;
 }
 
 /**
@@ -112,7 +109,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     if(!initialized) {
         task_q = malloc(sizeof(queue));
         initialize(task_q);
-        
+
         mthread *main = (mthread *) malloc(sizeof(mthread));
         main->start_routine = main->arg = main->result = NULL;
         main->tid = gettid();
@@ -120,10 +117,11 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
 
         stack_size = get_stack_size();
         nproc = get_extant_process_limit();
+        page_size = get_page_size();
 
         initialized = 1;
     }
-    
+
     if(getcount(task_q) == nproc) {
         return EAGAIN;
     }
@@ -138,7 +136,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     }
     t->start_routine = start_routine;
     t->arg = arg;
-
+    t->joined = 0;
     t->stack_size = stack_size;
     t->base = allocate_stack(t->stack_size);
     if(t->base == NULL) {
@@ -146,7 +144,15 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
         return -1;
     }
 
-    t->tid = clone(thread_start,t->base + t->stack_size,CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,t,&t->condition,t,&t->condition);
+    t->tid = clone(thread_start,
+                   t->base + t->stack_size,
+                   CLONE_VM | CLONE_FS | CLONE_FILES |
+                   CLONE_SIGHAND |CLONE_THREAD | CLONE_SYSVSEM |
+                   CLONE_SETTLS |CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
+                   t,
+                   &t->condition,
+                   t,
+                   &t->condition);
     if(t->tid == -1) {
         deallocate_stack(t->base, t->stack_size);
         free(t);
@@ -160,7 +166,6 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     return 0;
 }
 
-
 /**
  * Wait until the specified thread has exited.
  * Returns the value returned by that thread's
@@ -173,13 +178,13 @@ int thread_join(mthread_t thread, void **retval) {
         return ESRCH;
     }
     if(target->joined) {
-        return  EINVAL;
+        return EINVAL;
     }
 
     target->joined = 1;
 
     int err = futex(&target->condition, FUTEX_WAIT, target->tid);
-    if (err == -1) {
+    if(err == -1 && errno != EAGAIN) {
         return err;
     }
 
@@ -203,7 +208,7 @@ void thread_yield(void) {
 void thread_exit(void *retval) {
     mthread *self = thread_self();
     self->result = retval;
-    /* WHAT ELSE TO DO HERE? */
+    syscall(SYS_exit, 0);
 }
 
 /**
@@ -212,7 +217,7 @@ void thread_exit(void *retval) {
 int thread_kill(mthread_t thread, int sig) {
     if(sig == 0)
         return 0;
-    
+
     pid_t tgid = getpid();
     int err = tgkill(tgid, thread, sig);
     if(err == -1)
