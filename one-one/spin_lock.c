@@ -4,10 +4,11 @@
 #include "spin_lock.h"
 
 /** 
- * The atomic_compare_exchange_strong() macro stores a desired value into 
- * atomic variable object, only if the atomic variable is equal to its expected
- * value. Upon success, the macro returns true. Upon failure, the desired value 
- * is overwritten with the value of the atomic variable and false is returned.
+ * atomic_compare_exchange_strong(ptr, oldval, newval)
+ * atomically performs the equivalent of:
+ * if (*ptr == *oldval)
+ *     *ptr = newval;
+ * It returns true if the test yielded true and *ptr was updated.
  */
 static inline int atomic_cas(int *lock_addr, int expected, int desired) {
     return atomic_compare_exchange_strong(lock_addr, &expected, desired);
