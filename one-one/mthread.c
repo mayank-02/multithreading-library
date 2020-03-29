@@ -12,14 +12,19 @@
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <string.h>
 #include "queue.h"
+#include "spin_lock.h"
 #include "mthread.h"
+
+#define print(str) write(1, str, strlen(str))
 
 static int initialized = 0;
 static uint64_t nproc;
 static uint64_t stack_size;
 static uint64_t page_size;
 static queue * task_q;
+static mthread_spinlock_t lock;
 
 static uint64_t get_extant_process_limit(void) {
     struct rlimit limit;
@@ -51,7 +56,7 @@ static void * allocate_stack(uint64_t stack_size) {
     if(base == MAP_FAILED)
         return NULL;
 
-    if(mprotect(base, page_size, PROT_READ | PROT_WRITE) == -1) {
+    if(mprotect(base, page_size, PROT_NONE) == -1) {
         munmap(base, stack_size + page_size);
         return NULL;
     }
@@ -96,7 +101,8 @@ static mthread *thread_self(void) {
 static int thread_start(void *thread) {
     mthread *t = (mthread *)thread;
 
-    t->result = t->start_routine(t->arg);
+    if(sigsetjmp(t->context, 0) == 0)
+        t->result = t->start_routine(t->arg);
 
     return 0;
 }
@@ -107,6 +113,7 @@ static int thread_start(void *thread) {
  */
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
     if(!initialized) {
+        thread_spin_init(&lock);
         task_q = malloc(sizeof(queue));
         initialize(task_q);
 
@@ -121,7 +128,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
 
         initialized = 1;
     }
-
+    thread_spin_lock(&lock);
     if(getcount(task_q) == nproc) {
         return EAGAIN;
     }
@@ -163,6 +170,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
 
     *thread = t->tid;
 
+    thread_spin_unlock(&lock);
     return 0;
 }
 
@@ -173,6 +181,7 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
  */
 int thread_join(mthread_t thread, void **retval) {
     /* Search in queue for tcb corr to tid */
+    thread_spin_lock(&lock);
     mthread *target = search_on_tid(task_q, thread);
     if(target == NULL) {
         return ESRCH;
@@ -191,7 +200,7 @@ int thread_join(mthread_t thread, void **retval) {
     if(retval) {
         *retval = target->result;
     }
-
+    thread_spin_unlock(&lock);
     return 0;
 }
 
@@ -206,9 +215,11 @@ void thread_yield(void) {
  * Exit the calling thread with return value retval.
  */
 void thread_exit(void *retval) {
+    thread_spin_lock(&lock);
     mthread *self = thread_self();
     self->result = retval;
-    syscall(SYS_exit, 0);
+    thread_spin_unlock(&lock);
+    siglongjmp(self->context, 1);
 }
 
 /**
