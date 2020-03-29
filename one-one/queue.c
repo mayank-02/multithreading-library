@@ -60,11 +60,11 @@ void display(queue *q) {
     if(isempty(q))
         return;
 
-    node *tmp = q->head;
-    printf("Queue: ");
-    for(int i = 0; i < q->count; i++) {
-        printf("%u  ", tmp->thd->tid);
-        tmp=tmp->next;
+    node *runner = q->head;
+    printf("Queue (%d): ", q->count);
+    while(runner) {
+        printf("%u  ", runner->thd->tid);
+        runner = runner->next;
     }
     printf("\n");
 }
