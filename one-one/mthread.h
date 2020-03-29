@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <setjmp.h>
+
 typedef pid_t mthread_t;
 
 typedef struct mthread {
@@ -24,7 +26,10 @@ typedef struct mthread {
     /* Has someone joined on it? */
     int joined;
     /* Futex */
-    uint32_t condition;
+    int32_t condition;
+    
+    /* For exiting safely */
+    sigjmp_buf context;
 } mthread;
 
 /** 
