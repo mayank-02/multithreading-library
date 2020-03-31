@@ -1,11 +1,12 @@
-#include "interrupt.h"
 #include <signal.h>
+#include <stdlib.h>
+#include "interrupt.h"
 
 void interrupt_enable(mthread_timer_t *timer) {
     /* Unblock SIGVTALRM */
     sigset_t mask;
     sigaddset(&mask, SIGVTALRM);
-    sigprocmask(SIG_UNBLOCK, &mask, 0);
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
     /* Enable timer (counts down against the user-mode CPU time consumed by
        the process */
@@ -20,7 +21,7 @@ void interrupt_disable(mthread_timer_t *timer) {
     /* Block SIGVTALRM */
     sigset_t mask;
     sigaddset(&mask, SIGVTALRM);
-    sigprocmask(SIG_BLOCK, &mask, 0);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
 
     /* Disable timer */
     timer->it_value.tv_sec = 0;
