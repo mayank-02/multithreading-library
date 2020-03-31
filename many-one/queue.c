@@ -63,13 +63,13 @@ void display(queue *q) {
     node *tmp = q->head;
     printf("Queue: ");
     for(int i = 0; i < q->count; i++) {
-        printf("%lu  ", tmp->thd->tid);
+        printf("%d  ", tmp->thd->tid);
         tmp=tmp->next;
     }
     printf("\n");
 }
 
-mthread *search_on_tid(queue *q, unsigned long int tid) {
+mthread *search_on_tid(queue *q, pid_t tid) {
     if(isempty(q))
         return NULL;
     

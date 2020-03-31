@@ -17,5 +17,5 @@ void enqueue(queue *q, mthread *thd);
 mthread *dequeue(queue *q);
 int getcount(queue *q);
 void display(queue *q);
-mthread *search_on_tid(queue *q, unsigned long int tid);
+mthread *search_on_tid(queue *q, pid_t tid);
 void destroy(queue *q);
