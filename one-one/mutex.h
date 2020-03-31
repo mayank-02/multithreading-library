@@ -1,5 +1,5 @@
-#ifndef _SPIN_LOCK_H_
-#define _SPIN_LOCK_H_
+#ifndef _MUTEX_H_
+#define _MUTEX_H_
 
 #define LOCKED_WAITING   (2u)
 #define LOCKED           (1u)
@@ -16,4 +16,5 @@ int thread_mutex_init(mthread_mutex_t *mutex);
 int thread_mutex_trylock(mthread_mutex_t *mutex);
 int thread_mutex_lock(mthread_mutex_t *mutex);
 int thread_mutex_unlock(mthread_mutex_t *mutex);
+
 #endif
