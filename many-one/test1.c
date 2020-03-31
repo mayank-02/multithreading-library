@@ -27,11 +27,11 @@ int main() {
      iret2 = thread_create(&tid[1], print_message_function, (void *) message2);
      iret3 = thread_create(&tid[2], print_message_function, (void *) message3);
 
-     // thread_join(tid[0], NULL);
      /* Wait until all threads complete */
      for(int i = 0; i < NUM_OF_THREADS - 1; i++) {
-          // thread_join(tid[i], NULL);
+          thread_join(tid[i], NULL);
      }
+
      printf("Thread 1 returns: %d\n",iret1);
      printf("Thread 2 returns: %d\n",iret2);
      printf("Thread 3 returns: %d\n",iret3);
