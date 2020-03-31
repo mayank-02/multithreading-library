@@ -17,7 +17,7 @@
 
 static queue   *task_q;       /* Queue containing tasks for all threads */
 static mthread *current;      /* Thread which is running */
-static uint64_t unique = 0;   /* To allocate unique Thread IDs */
+static pid_t unique = 0;   /* To allocate unique Thread IDs */
 static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
 
 /* Tips
@@ -38,7 +38,7 @@ static mthread * get_next_ready_thread(void) {
 
         switch(runner->state) {
             case READY:
-                dprintf("get_next_ready_thread: Returning thread TID = %lu\n", runner->tid);
+                dprintf("get_next_ready_thread: Returning thread TID = %d\n", runner->tid);
                 return runner;
             case WAITING:
                 /* Check if the thread it is waiting for has ended */
@@ -52,7 +52,7 @@ static mthread * get_next_ready_thread(void) {
                 else {
                     /* Put thread back into queue */
                     enqueue(task_q, runner);
-                    dprintf("get_next_ready_thread: Thread TID = %lu still waiting for TID = %ld\n", runner->tid, runner->wait_for);
+                    dprintf("get_next_ready_thread: Thread TID = %d still waiting for TID = %d\n", runner->tid, runner->wait_for);
                 }
                 break;
             case SUSPENDED:
@@ -89,7 +89,7 @@ static void scheduler(int signum) {
         return;
     }
 
-    dprintf("scheduler: Saving context of Thread TID = %lu\n", current->tid);
+    dprintf("scheduler: Saving context of Thread TID = %d\n", current->tid);
 
     /* Change state of current thread from RUNNING to READY*/
     if(current->state == RUNNING)
@@ -105,7 +105,7 @@ static void scheduler(int signum) {
     /* Enable timer interrupts before loading next thread */
     interrupt_enable(&timer);
 
-    dprintf("scheduler: Loading context of Thread TID = %lu\n", current->tid);
+    dprintf("scheduler: Loading context of Thread TID = %d\n", current->tid);
     dprintf("scheduler: current %p\n", current);
     /* Load context and signal masks */
     siglongjmp(current->context, 1);
@@ -173,12 +173,12 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     *thread = tmp->tid;
 
     interrupt_enable(&timer);
-    dprintf("thread_create: Created Thread with TID = %lu and put in ready queue\n", tmp->tid);
+    dprintf("thread_create: Created Thread with TID = %d and put in ready queue\n", tmp->tid);
     return 0;
 }
 
 int thread_join(mthread_t tid, void **retval) {
-    dprintf("thread_join: Thread TID = %lu wants to wait on TID = %lu\n", current->tid, tid);
+    dprintf("thread_join: Thread TID = %d wants to wait on TID = %d\n", current->tid, tid);
     interrupt_disable(&timer);
     mthread *target;
     target = search_on_tid(task_q, tid);
@@ -191,7 +191,7 @@ int thread_join(mthread_t tid, void **retval) {
 
     /* Thread exists check */
     if(target == NULL) {
-        printf("No thread with the ID %lu could be found.\n", tid);
+        printf("No thread with the ID %d could be found.\n", tid);
         return ESRCH;
     }
 

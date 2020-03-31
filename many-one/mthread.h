@@ -10,11 +10,11 @@ typedef enum thread_state {
     RUNNING = 0, READY, SUSPENDED, FINISHED, WAITING
 } thread_state;
 
-typedef unsigned long int mthread_t;
+typedef pid_t mthread_t;
 
 typedef struct mthread {
     /* Thread ID */
-    unsigned long int tid;
+    mthread_t tid;
     /* Thread State */
     thread_state state;
 
@@ -26,13 +26,13 @@ typedef struct mthread {
     void *result;
     
     /* Context of the thread */
-    jmp_buf context;
+    sigjmp_buf context;
     char stack[MIN_STACK];
 
     /* TID to be joined to once finished */
-    long int joined_on;
+    mthread_t joined_on;
     /* TID for whom we are waiting for */
-    long int wait_for;
+    mthread_t wait_for;
 } mthread;
 
 /** 
