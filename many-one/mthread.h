@@ -7,8 +7,8 @@
 #define MIN_STACK       64 * 1024
 
 typedef enum thread_state {
-    RUNNING = 0, READY, SUSPENDED, FINISHED, WAITING
-} thread_state;
+    RUNNING = 0, READY, FINISHED, WAITING
+} mthread_state_t;
 
 typedef pid_t mthread_t;
 
@@ -16,7 +16,7 @@ typedef struct mthread {
     /* Thread ID */
     mthread_t tid;
     /* Thread State */
-    thread_state state;
+    mthread_state_t state;
 
     /* Start position of the code to be executed */ 
     void *(*start_routine) (void *);
@@ -33,6 +33,9 @@ typedef struct mthread {
     mthread_t joined_on;
     /* TID for whom we are waiting for */
     mthread_t wait_for;
+
+    /* For signal handling */
+    sigset_t sigpending;
 } mthread;
 
 /** 

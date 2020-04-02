@@ -11,7 +11,7 @@
 #include "mangle.h"
 
 /* For debugging purposes */
-#define DEBUG 0
+#define DEBUG 1
 #define dprintf(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
@@ -28,8 +28,6 @@ static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
  */
 
 static mthread * get_next_ready_thread(void) {
-    dprintf("get_next_ready_thread: started\n");
-
     mthread *runner, *temp;
     int i = getcount(task_q);
 
@@ -38,7 +36,6 @@ static mthread * get_next_ready_thread(void) {
 
         switch(runner->state) {
             case READY:
-                dprintf("get_next_ready_thread: Returning thread TID = %d\n", runner->tid);
                 return runner;
             case WAITING:
                 /* Check if the thread it is waiting for has ended */
@@ -52,10 +49,8 @@ static mthread * get_next_ready_thread(void) {
                 else {
                     /* Put thread back into queue */
                     enqueue(task_q, runner);
-                    dprintf("get_next_ready_thread: Thread TID = %d still waiting for TID = %d\n", runner->tid, runner->wait_for);
                 }
                 break;
-            case SUSPENDED:
             case FINISHED:
                 enqueue(task_q, runner);
                 break;
@@ -68,19 +63,22 @@ static mthread * get_next_ready_thread(void) {
 }
 
 static void cleanup_handler(void) {
-    destroy(task_q);
+    dprintf("%-15s: Cleaning up data structures\n", "cleanup_handler");
+    
     free(current);
+    
+    destroy(task_q);
+    free(task_q);
 }
 
 static void thread_start(void) {
-    dprintf("thread_start: entered\n");
+    dprintf("%-15s: Entered with TID %d\n", "thread_start", current->tid);
     current->result = current->start_routine(current->arg);
     thread_exit(current->result);
-    dprintf("thread_start: exited\n");
 }
 
 static void scheduler(int signum) {
-    dprintf("scheduler: SIGVTALRM received\n");
+    dprintf("%-15s: SIGVTALRM received\n", "scheduler");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable(&timer);
 
@@ -89,7 +87,7 @@ static void scheduler(int signum) {
         return;
     }
 
-    dprintf("scheduler: Saving context of Thread TID = %d\n", current->tid);
+    dprintf("%-15s: Saving context of Thread TID = %d\n", "scheduler", current->tid);
 
     /* Change state of current thread from RUNNING to READY*/
     if(current->state == RUNNING)
@@ -98,60 +96,76 @@ static void scheduler(int signum) {
     /* Enqueue current thread to ready queue */
     enqueue(task_q, current);
 
-    /* Get next ready thread running*/
+    /* Get next ready thread running */
     current = get_next_ready_thread();
     current->state = RUNNING;
 
+    /* Raise all pending signals */
+    for(int sig = 1; sig < NSIG; sig++) {
+        if(sigismember(&current->sigpending, sig)) {
+            raise(sig);
+            dprintf("%-15s: Raised pending signal %d of TID = %d\n", "scheduler", sig, current->tid);
+        }
+    }
     /* Enable timer interrupts before loading next thread */
     interrupt_enable(&timer);
 
-    dprintf("scheduler: Loading context of Thread TID = %d\n", current->tid);
-    dprintf("scheduler: current %p\n", current);
+    dprintf("%-15s: Loading context of Thread TID = %d\n", "scheduler", current->tid);
     /* Load context and signal masks */
     siglongjmp(current->context, 1);
 }
 
 int thread_init(void) {
-    dprintf("thread_init: Started\n");
+    dprintf("%-15s: Started\n", "thread_init");
 
     /* Initialise queues */
-    task_q = malloc(sizeof(queue));
+    task_q = calloc(1, sizeof(queue));
     initialize(task_q);
 
+    /* Register cleanup handler to be called on exit */
+    atexit(cleanup_handler);
+
     /* Make thread control block for main thread */
-    current = (mthread *) malloc(sizeof(mthread));
+    current = (mthread *) calloc(1, sizeof(mthread));
     current->tid = unique++;
     current->state = RUNNING;
     current->joined_on = -1;
     current->wait_for = -1;
 
     /* Setting up signal handler */
-	signal(SIGVTALRM, scheduler);
+	// signal(SIGVTALRM, scheduler);
+    struct sigaction setup_action;
+    sigset_t block_mask;
+    sigfillset(&block_mask);
+    setup_action.sa_handler = scheduler;
+    setup_action.sa_mask = block_mask;
+    setup_action.sa_flags = 0;
+    sigaction(SIGVTALRM, &setup_action, NULL);
 
     /* Setup timers for regular interrupts */
     timer.it_value.tv_sec = 0;
 	timer.it_interval.tv_sec = 0;
     interrupt_enable(&timer);
 
-    dprintf("thread_init: Exited\n");
+    dprintf("%-15s: Exited\n", "thread_init");
     return 0;
 }
 
 int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
-    dprintf("thread_create: Started\n");
+    dprintf("%-15s: Started\n", "thread_create");
 
     interrupt_disable(&timer);
     if(thread == NULL)
         return EFAULT;
 
     if(unique == MAX_THREADS) {
-        printf("A  system-imposed  limit on the number of threads was encountered.\n");
+        // printf("A  system-imposed  limit on the number of threads was encountered.\n");
         return EAGAIN;
     }
 
-    mthread *tmp = (mthread *) malloc(sizeof(mthread));
+    mthread *tmp = (mthread *) calloc(1, sizeof(mthread));
     if(tmp == NULL) {
-        printf("Insufficient resources to create another thread.\n");
+        // printf("Insufficient resources to create another thread.\n");
         return EAGAIN;
     }
 
@@ -173,12 +187,12 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     *thread = tmp->tid;
 
     interrupt_enable(&timer);
-    dprintf("thread_create: Created Thread with TID = %d and put in ready queue\n", tmp->tid);
+    dprintf("%-15s: Created Thread with TID = %d and put in ready queue\n", "thread_create", tmp->tid);
     return 0;
 }
 
 int thread_join(mthread_t tid, void **retval) {
-    dprintf("thread_join: Thread TID = %d wants to wait on TID = %d\n", current->tid, tid);
+    dprintf("%-15s: Thread TID = %d wants to wait on TID = %d\n", "thread_join", current->tid, tid);
     interrupt_disable(&timer);
     mthread *target;
     target = search_on_tid(task_q, tid);
@@ -211,12 +225,13 @@ int thread_join(mthread_t tid, void **retval) {
     if(retval) {
         *retval = target->result;
     }
-    dprintf("thread_join: Exited\n");
+    dprintf("%-15s: Exited\n", "thread_join");
     return 0;
 }
 
 /* Exit the calling thread with return value retval. */
 void thread_exit(void *retval) {
+    dprintf("%-15s: TID %d exiting\n", "thread_exit", current->tid);
     interrupt_disable(&timer);
     current->state = FINISHED;
     current->result = retval;
@@ -232,54 +247,38 @@ void thread_exit(void *retval) {
             enqueue(task_q, waiting_for);
             thread_join(waiting_for->tid, NULL);
         }
-        cleanup_handler();
-        dprintf("thread_exit: All threads along with main thread exited\n");
-        dprintf("thread_exit: Exiting program now\n");
+        dprintf("%-15s: All threads along with main thread exited\n", "thread_exit");
+        dprintf("%-15s: Exiting program now\n", "thread_exit");
         exit(0);
     }
 
-    enqueue(task_q, current);
-
     interrupt_enable(&timer);
-
     thread_yield();
 }
 
 void thread_yield(void) {
-    kill(getpid(), SIGVTALRM);
+    dprintf("%-15s: Yielding to next thread\n", "thread_yield");
+    raise(SIGVTALRM);
 }
 
 int thread_kill(mthread_t thread, int sig) {
-    dprintf("thread_kill: Started\n");
-    if (thread == current->tid || (sig < 0 || sig > NSIG))
+    dprintf("%-15s: Started\n", "thread_kill");
+
+    if(sig < 0 || sig > NSIG)
         return EINVAL;
+
+    if(thread == current->tid) {
+        dprintf("%-15s: Raised signal %d for tid %d\n", "thread_kill", sig, current->tid);
+        return raise(sig);
+    }
 
     mthread *target = search_on_tid(task_q, thread);
     if(target == NULL)
         return EINVAL;
 
-    switch(sig) {
-        case SIGINT:
-        case SIGQUIT:
-        case SIGKILL:
-        case SIGTERM:
-            target->state = FINISHED;
-            break;
-        case SIGALRM:
-        case SIGVTALRM:
-            return EINVAL;
-        case SIGCONT:
-            if(target->state == SUSPENDED)
-                target->state = READY;
-            break;
-        case SIGSTOP:
-        case SIGTSTP:
-            if(target->state == READY)
-                target->state = SUSPENDED;
-            break;
-        default:
-            break;
-    }
-    dprintf("thread_kill: Exited\n");
+    sigaddset(&target->sigpending, sig);
+
+    dprintf("%-15s: Added signal %d to pending signals of TID %d\n", "thread_kill", sig, target->tid);
+    dprintf("%-15s: Exited\n", "thread_kill");
     return 0;
 }
