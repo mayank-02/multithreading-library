@@ -17,6 +17,8 @@ typedef struct {
 /* Global matrices to allow easier threading */
 matrix a, b, c;
 
+int running = 1;
+
 /**
  * Initialise the matrix
  * @param m pointer to matrix
@@ -96,6 +98,10 @@ void * multiplyMatrix(void *arg) {
     thread_exit(NULL);
 }
 
+void *infinite(void *arg) {
+    while(running);
+    thread_exit(NULL);
+}
 int main() {
     int i, d[NUM_OF_THREADS][2];
 
@@ -115,7 +121,7 @@ int main() {
     initMatrix(&c);
 
     /* Thread identifiers */
-    mthread_t tid[NUM_OF_THREADS];
+    mthread_t tid[NUM_OF_THREADS], extra;
 
     thread_init();
     
@@ -130,11 +136,14 @@ int main() {
         thread_create( &tid[i], multiplyMatrix, d[i]);
     }
 
+    thread_create( &extra, infinite, NULL);
     /* Wait until all threads complete */
     for(i = 0; i < NUM_OF_THREADS; i++) {
         thread_join(tid[i], NULL);
     }
-
+    sleep(5);
+    running = 0;
+    thread_join(extra, NULL);
     printMatrix(c);
 
     /* Free all allocated memory */

@@ -6,7 +6,7 @@
 #include "mthread.h"
 #include "spin_lock.h"
 
-#define print(str) write(STDOUT_FILENO, str, strlen(str))
+#define print(str) write(1, str, strlen(str))
 
 mthread_spinlock_t value;
 int hola;
@@ -18,8 +18,8 @@ void handler(int sig) {
 
 void *func1(void *arg) {
     print("Thread1: Entered\n");
-    signal(SIGUSR1, handler);
-
+    
+    sleep(2);
     thread_spin_lock(&value);
     print("Thread1: Locked\n");    
     
@@ -36,13 +36,13 @@ void *func1(void *arg) {
     thread_spin_unlock(&value);
     
     print("Thread1: Exited\n");
-
+    sleep(2);
     return (void *)hola;
 }
 
 void *func2(void *arg) {
     print("Thread2: Entered\n");
-    
+    signal(SIGUSR1, handler);
     thread_spin_lock(&value);
     print("Thread2: Locked\n");
     hola = 15;
@@ -57,23 +57,23 @@ int main() {
     mthread_t td1, td2;
     void *ret1, *ret2;
     int err;
-    
+    signal(SIGUSR1, handler);
     thread_spin_init(&value);
     thread_init();
     
-    err = thread_create(&td2, func1, NULL);
+    err = thread_create(&td1, func1, NULL);
     if(err == -1) {
         perror("thread_create1");
     }
     
-    err = thread_create(&td1, func2, NULL);
+    err = thread_create(&td2, func2, NULL);
     if(err == -1) {
         perror("thread_create2");
     }
 
     sleep(1);
 
-    // thread_kill(td1, SIGUSR1);
+    thread_kill(td2, SIGUSR1);
 
     print("In main\n");
     err = thread_join(td1, &ret1);
