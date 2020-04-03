@@ -28,7 +28,7 @@ int thread_spin_lock(mthread_spinlock_t *lock) {
 
 int thread_spin_trylock(mthread_spinlock_t *lock) {
     assert(lock);
-    return *lock ? EBUSY : 0;
+    return atomic_load(lock) ? EBUSY : 0;
 }
 
 int thread_spin_unlock(mthread_spinlock_t *lock) {
