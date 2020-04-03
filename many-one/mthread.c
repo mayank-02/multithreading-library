@@ -5,13 +5,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include "mthread.h"
 #include "queue.h"
 #include "interrupt.h"
 #include "mangle.h"
 
 /* For debugging purposes */
-#define DEBUG 1
+#define DEBUG 0
 #define dprintf(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
@@ -19,6 +22,8 @@ static queue   *task_q;       /* Queue containing tasks for all threads */
 static mthread *current;      /* Thread which is running */
 static pid_t unique = 0;   /* To allocate unique Thread IDs */
 static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
+static size_t stack_size;
+static size_t page_size;
 
 /* Tips
  * 1. Use assert()
@@ -26,9 +31,59 @@ static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
  * by clients of the library) "static" to prevent naming conflicts with programs
  * that link with your thread library.
  */
+/* copy a string like strncpy() but always null-terminate */
+static char *util_strncpy(char *dst, const char *src, size_t dst_size) {
+    if(dst_size == 0)
+        return dst;
+    
+    char *d = dst;
+    char *end = dst + dst_size - 1;
+    
+    while(d < end) {
+        if((*d = *src) == '\0')
+            return dst;
+        d++;
+        src++;
+    }
+    *d = '\0';
+    
+    return dst;
+}
+
+static size_t get_stack_size(void) {
+    struct rlimit limit;
+    getrlimit(RLIMIT_STACK, &limit);
+    return limit.rlim_cur;
+}
+
+static size_t get_page_size() {
+    return sysconf(_SC_PAGESIZE);
+}
+
+static void * allocate_stack(size_t stack_size) {
+    void *base = mmap(NULL,
+                      stack_size + page_size,
+                      PROT_READ | PROT_WRITE,
+                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
+                      -1,
+                      0);
+    if(base == MAP_FAILED)
+        return NULL;
+
+    if(mprotect(base, page_size, PROT_NONE) == -1) {
+        munmap(base, stack_size + page_size);
+        return NULL;
+    }
+
+    return base + page_size;
+}
+
+static int deallocate_stack(void *base, size_t stack_size) {
+    return munmap(base - page_size, stack_size + page_size);
+}
 
 static mthread * get_next_ready_thread(void) {
-    mthread *runner, *temp;
+    mthread *runner;
     int i = getcount(task_q);
 
     while(i--) {
@@ -38,24 +93,11 @@ static mthread * get_next_ready_thread(void) {
             case READY:
                 return runner;
             case WAITING:
-                /* Check if the thread it is waiting for has ended */
-                temp = search_on_tid(task_q, runner->wait_for);
-                if(temp->state == FINISHED) {
-                    /* Change state of thread from WAITING to READY */
-                    runner->state = READY;
-                    runner->wait_for = -1;
-                    return runner;
-                }
-                else {
-                    /* Put thread back into queue */
-                    enqueue(task_q, runner);
-                }
-                break;
             case FINISHED:
                 enqueue(task_q, runner);
                 break;
             case RUNNING:
-                break;
+                return NULL;
         }
     }
 
@@ -64,10 +106,14 @@ static mthread * get_next_ready_thread(void) {
 
 static void cleanup_handler(void) {
     dprintf("%-15s: Cleaning up data structures\n", "cleanup_handler");
-    
-    free(current);
-    
-    destroy(task_q);
+
+    mthread *t;
+    int n = getcount(task_q);
+    while(n--) {
+        t = dequeue(task_q);
+        deallocate_stack(t->stackaddr, t->stacksize);
+        free(t);
+    }
     free(task_q);
 }
 
@@ -98,6 +144,9 @@ static void scheduler(int signum) {
 
     /* Get next ready thread running */
     current = get_next_ready_thread();
+    if(current == NULL) {
+        exit(0);
+    }
     current->state = RUNNING;
 
     /* Raise all pending signals */
@@ -125,12 +174,16 @@ int thread_init(void) {
     /* Register cleanup handler to be called on exit */
     atexit(cleanup_handler);
 
+    stack_size = get_stack_size();
+    dprintf("%-15s: stack size %lu\n", "thread_init", stack_size);
+    page_size = get_page_size();
+    dprintf("%-15s: page size %lu\n", "thread_init", page_size);
+    
     /* Make thread control block for main thread */
     current = (mthread *) calloc(1, sizeof(mthread));
     current->tid = unique++;
     current->state = RUNNING;
     current->joined_on = -1;
-    current->wait_for = -1;
 
     /* Setting up signal handler */
 	// signal(SIGVTALRM, scheduler);
@@ -151,21 +204,22 @@ int thread_init(void) {
     return 0;
 }
 
-int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
+int thread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
     dprintf("%-15s: Started\n", "thread_create");
 
     interrupt_disable(&timer);
     if(thread == NULL)
         return EFAULT;
+    
+    if(start_routine == NULL)
+        return EFAULT;
 
-    if(unique == MAX_THREADS) {
-        // printf("A  system-imposed  limit on the number of threads was encountered.\n");
+    if(unique == MTHREAD_MAX_THREADS) {
         return EAGAIN;
     }
 
     mthread *tmp = (mthread *) calloc(1, sizeof(mthread));
     if(tmp == NULL) {
-        // printf("Insufficient resources to create another thread.\n");
         return EAGAIN;
     }
 
@@ -174,12 +228,36 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
     tmp->start_routine = start_routine;
     tmp->arg = arg;
     tmp->joined_on = -1;
-    tmp->wait_for = -1;
+    sigemptyset(&tmp->sigpending);
+
+    /* Stack handling */
+    tmp->stacksize = (attr == NULL ? MTHREAD_MIN_STACK : attr->a_stacksize);
+    if(tmp->stacksize < MTHREAD_MIN_STACK)
+        tmp->stacksize = MTHREAD_MIN_STACK;
+    
+    tmp->stackaddr = (attr == NULL ? NULL : attr->a_stackaddr);
+    if(tmp->stackaddr == NULL) {
+        tmp->stackaddr = allocate_stack(tmp->stacksize);
+        if(tmp->stackaddr == NULL) {
+            return EAGAIN;
+        }
+    }
+    /* Configure remaining attributes */
+    if(attr != NULL) {
+        /* Overtake fields from the attribute structure */
+        tmp->joinable = attr->a_joinable;
+        util_strncpy(tmp->name, attr->a_name, MTHREAD_TCB_NAMELEN);
+    }
+    else {
+        /* Set defaults */
+        tmp->joinable = 1;
+        snprintf(tmp->name, MTHREAD_TCB_NAMELEN, "User%d", tmp->tid);
+    }
 
     /* Make context for new thread */
     sigsetjmp(tmp->context, 1);
     /* Change stack pointer to point to top of stack */
-    tmp->context[0].__jmpbuf[JB_SP] = mangle((long int) tmp->stack + MIN_STACK);
+    tmp->context[0].__jmpbuf[JB_SP] = mangle((long int) tmp->stackaddr + tmp->stacksize - sizeof(long int));
     /* Change program counter to point to start function (here thread_start instead) */
 	tmp->context[0].__jmpbuf[JB_PC] = mangle((long int) thread_start);
 
@@ -199,24 +277,20 @@ int thread_join(mthread_t tid, void **retval) {
 
     /* Deadlock check */
     if(current->tid == tid) {
-        printf("A deadlock was detected.\n");
         return EDEADLK;
     }
 
     /* Thread exists check */
     if(target == NULL) {
-        printf("No thread with the ID %d could be found.\n", tid);
         return ESRCH;
     }
 
-    /* No other thread is waiting on it check */
-    if(target->joined_on != -1) {
-        printf("Another thread is already waiting to join with this thread.\n");
+    /* Thread is joinable and no one has joined on it check */
+    if(!target->joinable || target->joined_on != -1) {
         return EINVAL;
     }
 
     target->joined_on = current->tid;
-    current->wait_for = tid;
     current->state = WAITING;
     interrupt_enable(&timer);
 
@@ -225,6 +299,7 @@ int thread_join(mthread_t tid, void **retval) {
     if(retval) {
         *retval = target->result;
     }
+
     dprintf("%-15s: Exited\n", "thread_join");
     return 0;
 }
@@ -233,25 +308,15 @@ int thread_join(mthread_t tid, void **retval) {
 void thread_exit(void *retval) {
     dprintf("%-15s: TID %d exiting\n", "thread_exit", current->tid);
     interrupt_disable(&timer);
+
     current->state = FINISHED;
     current->result = retval;
-
-    if(current->tid == 0) {
-        /* ASSERT: Main Thread is running */
-        while(1) {
-            mthread *waiting_for;
-            waiting_for = get_next_ready_thread();
-            if(waiting_for == NULL) {
-                break;
-            }
-            enqueue(task_q, waiting_for);
-            thread_join(waiting_for->tid, NULL);
-        }
-        dprintf("%-15s: All threads along with main thread exited\n", "thread_exit");
-        dprintf("%-15s: Exiting program now\n", "thread_exit");
-        exit(0);
+    
+    if(current->joined_on != -1) {
+        mthread *target = search_on_tid(task_q, current->joined_on);
+        target->state = READY;
     }
-
+    
     interrupt_enable(&timer);
     thread_yield();
 }
