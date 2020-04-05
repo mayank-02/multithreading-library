@@ -1,87 +1,40 @@
 #define _GNU_SOURCE
-#include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <sys/resource.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <sched.h>
 #include <linux/futex.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <sys/mman.h>
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <asm/prctl.h>
 #include <sys/prctl.h>
-#include <sys/syscall.h>
-#include <string.h>
 #include "queue.h"
+#include "stack.h"
 #include "spin_lock.h"
 #include "mthread.h"
+#include "utils.h"
 
-#define print(str) write(1, str, strlen(str))
-
-static int initialized = 0;
-static uint64_t nproc;
-static uint64_t stack_size;
-static uint64_t page_size;
+static size_t nproc;
+static size_t stack_size;
+static size_t page_size;
 static queue * task_q;
 static mthread_spinlock_t lock;
-
-static uint64_t get_extant_process_limit(void) {
-    struct rlimit limit;
-    getrlimit(RLIMIT_NPROC, &limit);
-    // printf ("The current maximum number of processes is %d.\n", (int) curr_limits.rlim_cur);
-    // printf ("The hard limit on the number of processes is %d.\n", (int) curr_limits.rlim_max);
-    return limit.rlim_cur;
-}
-
-static uint64_t get_stack_size(void) {
-    struct rlimit limit;
-    getrlimit(RLIMIT_STACK, &limit);
-    // printf("Soft limit: %ju bytes\n", (uintmax_t)limit.rlim_cur);
-    // printf("Hard limit: %ju bytes\n", (uintmax_t)limit.rlim_max);
-    return limit.rlim_cur;
-}
-
-static uint64_t get_page_size() {
-    return sysconf(_SC_PAGESIZE);
-}
-
-static void * allocate_stack(uint64_t stack_size) {
-    void *base = mmap(NULL,
-                      stack_size + page_size,
-                      PROT_READ | PROT_WRITE,
-                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
-                      -1,
-                      0);
-    if(base == MAP_FAILED)
-        return NULL;
-
-    if(mprotect(base, page_size, PROT_NONE) == -1) {
-        munmap(base, stack_size + page_size);
-        return NULL;
-    }
-
-    /* Assume stack grows downward */
-    return base + page_size;
-}
-
-static void deallocate_stack(void *base, size_t stack_size) {
-    munmap(base - page_size, stack_size + page_size);
-}
 
 static inline int futex(int *uaddr, int futex_op, int val) {
     return syscall(SYS_futex, uaddr, futex_op, val, NULL, NULL, 0);
 }
 
-static int arch_prctl(int code, unsigned long *addr) {
+static inline int arch_prctl(int code, unsigned long *addr) {
     return syscall(SYS_arch_prctl, code, addr);
 }
 
-static int tgkill(int tgid, int tid, int sig) {
+static inline int tgkill(int tgid, int tid, int sig) {
     return syscall(SYS_tgkill, tgid, tid, sig);
 }
 
-static pid_t gettid(void) {
+static inline pid_t gettid(void) {
     return syscall(SYS_gettid);
 }
 
@@ -107,49 +60,60 @@ static int thread_start(void *thread) {
     return 0;
 }
 
+int thread_init(void) {
+    thread_spin_init(&lock);
+
+    task_q = malloc(sizeof(queue));
+    initialize(task_q);
+
+    mthread *main = (mthread *) malloc(sizeof(mthread));
+    main->start_routine = main->arg = main->result = NULL;
+    main->base          = NULL;
+    main->stack_size    = 0;
+    main->tid           = gettid();
+    enqueue(task_q, main);
+
+    stack_size  = get_stack_size();
+    nproc       = get_extant_process_limit();
+    page_size   = get_page_size();
+
+    return 0;
+}
+
 /**
  * Create a new thread starting at the routine given, which will
  * be passed arg.
  */
-int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) {
-    if(!initialized) {
-        thread_spin_init(&lock);
-        task_q = malloc(sizeof(queue));
-        initialize(task_q);
-
-        mthread *main = (mthread *) malloc(sizeof(mthread));
-        main->start_routine = main->arg = main->result = NULL;
-        main->tid = gettid();
-        enqueue(task_q, main);
-
-        stack_size = get_stack_size();
-        nproc = get_extant_process_limit();
-        page_size = get_page_size();
-
-        initialized = 1;
-    }
+int thread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
     thread_spin_lock(&lock);
-    if(getcount(task_q) == nproc) {
+
+    if(getcount(task_q) == nproc)
         return EAGAIN;
-    }
+
+    if(start_routine == NULL)
+        return EINVAL;
 
     mthread *t = (mthread *) malloc(sizeof(mthread));
-    if(t == NULL) {
-        /* printf("Insufficient resources to create another thread.\n"); */
+    if(t == NULL)
         return EAGAIN;
-    }
-    if(start_routine == NULL) {
-        return -1;
-    }
+
     t->start_routine = start_routine;
-    t->arg = arg;
-    t->joined = 0;
-    t->stack_size = stack_size;
-    t->base = allocate_stack(t->stack_size);
+    t->arg           = arg;
+    t->detach_state  = (attr == NULL ? JOINABLE     : attr->a_detach_state);
+    t->stack_size    = (attr == NULL ? stack_size   : attr->a_stack_size);
+    t->base          = (attr == NULL ? NULL         : attr->a_base);
     if(t->base == NULL) {
-        free(t);
-        return -1;
+        t->base = allocate_stack(t->stack_size);
+        if(t->base == NULL) {
+            free(t);
+            return ENOMEM;
+        }
     }
+
+    if(attr == NULL)
+        snprintf(t->name, MTHREAD_TCB_NAMELEN, "User%d", t->tid);
+    else
+        util_strncpy(t->name, attr->a_name, MTHREAD_TCB_NAMELEN);
 
     t->tid = clone(thread_start,
                    t->base + t->stack_size,
@@ -157,13 +121,13 @@ int thread_create(mthread_t *thread, void *(*start_routine)(void *), void *arg) 
                    CLONE_SIGHAND |CLONE_THREAD | CLONE_SYSVSEM |
                    CLONE_SETTLS |CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
                    t,
-                   &t->condition,
+                   &t->futex,
                    t,
-                   &t->condition);
+                   &t->futex);
     if(t->tid == -1) {
         deallocate_stack(t->base, t->stack_size);
         free(t);
-        return -1;
+        return errno;
     }
 
     enqueue(task_q, t);
@@ -183,24 +147,23 @@ int thread_join(mthread_t thread, void **retval) {
     /* Search in queue for tcb corr to tid */
     thread_spin_lock(&lock);
     mthread *target = search_on_tid(task_q, thread);
-    if(target == NULL) {
+    if(target == NULL)
         return ESRCH;
-    }
-    if(target->joined) {
+
+    if(target->detach_state == DETACHED || target->detach_state == JOINED)
         return EINVAL;
-    }
 
-    target->joined = 1;
 
-    int err = futex(&target->condition, FUTEX_WAIT, target->tid);
-    if(err == -1 && errno != EAGAIN) {
-        return err;
-    }
-
-    if(retval) {
-        *retval = target->result;
-    }
+    target->detach_state = JOINED;
     thread_spin_unlock(&lock);
+
+    int err = futex(&target->futex, FUTEX_WAIT, target->tid);
+    if(err == -1 && errno != EAGAIN)
+        return err;
+
+    if(retval)
+        *retval = target->result;
+
     return 0;
 }
 
