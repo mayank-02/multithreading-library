@@ -1,28 +1,79 @@
-#include "mthread.h"
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include "mthread.h"
+#include "utils.h"
 
-int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap);
-
-/* copy a string like strncpy() but always null-terminate */
-static char *util_strncpy(char *dst, const char *src, size_t dst_size) {
-    if(dst_size == 0)
-        return dst;
-    
-    char *d = dst;
-    char *end = dst + dst_size - 1;
-    
-    while(d < end) {
-        if((*d = *src) == '\0')
-            return dst;
-        d++;
-        src++;
+static int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
+    if(a == NULL)
+        return EINVAL;
+    switch(op) {
+        case MTHREAD_ATTR_NAME: {
+            /* name */
+            if(cmd == MTHREAD_ATTR_SET) {
+                char *src, *dst;
+                src = va_arg(ap, char *);
+                dst = a->a_name;
+                util_strncpy(dst, src, MTHREAD_TCB_NAMELEN);
+            }
+            else {
+                char *src, **dst;
+                src = a->a_name;
+                dst = va_arg(ap, char **);
+                *dst = src;
+            }
+            break;
+        }
+        case MTHREAD_ATTR_JOINABLE: {
+            /* detachment type */
+            int val, *src, *dst;
+            if(cmd == MTHREAD_ATTR_SET) {
+                src = &val;
+                val = va_arg(ap, int);
+                dst = &a->a_joinable;
+            }
+            else {
+                src = &a->a_joinable;
+                dst = va_arg(ap, int *);
+            }
+            *dst = *src;
+            break;
+        }
+        case MTHREAD_ATTR_STACK_SIZE: {
+            /* stack size */
+            size_t val, *src, *dst;
+            if(cmd == MTHREAD_ATTR_SET) {
+                src = &val;
+                val = va_arg(ap, size_t);
+                dst = &a->a_stacksize;
+            }
+            else {
+                src = &a->a_stacksize;
+                dst = va_arg(ap, size_t *);
+            }
+            *dst = *src;
+            break;
+        }
+        case MTHREAD_ATTR_STACK_ADDR: {
+            /* stack address */
+            void *val, **src, **dst;
+            if(cmd == MTHREAD_ATTR_SET) {
+                src = &val;
+                val = va_arg(ap, void *);
+                dst = &a->a_stackaddr;
+            }
+            else {
+                src = &a->a_stackaddr;
+                dst = va_arg(ap, void **);
+            }
+            *dst = *src;
+            break;
+        }
+        default:
+            return EINVAL;
     }
-    *d = '\0';
-    
-    return dst;
+    return 0;
 }
 
 mthread_attr_t *mthread_attr_new(void) {
@@ -32,22 +83,15 @@ mthread_attr_t *mthread_attr_new(void) {
         /* return ENOMEM; */
         return NULL;
     }
-    
+
     mthread_attr_init(a);
     return a;
-}
-
-int mthread_attr_destroy(mthread_attr_t *a) {
-    if(a == NULL)
-        return EINVAL;
-    free(a);
-    return 0;
 }
 
 int mthread_attr_init(mthread_attr_t *a) {
     if(a == NULL)
         return EINVAL;
-    
+
     util_strncpy(a->a_name, "Unknown", MTHREAD_TCB_NAMELEN);
     a->a_joinable = 1;
     a->a_stacksize = 64 * 1024;
@@ -76,73 +120,9 @@ int mthread_attr_set(mthread_attr_t *a, int op, ...) {
     return ret;
 }
 
-int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
+int mthread_attr_destroy(mthread_attr_t *a) {
     if(a == NULL)
         return EINVAL;
-    switch(op) {
-        case MTHREAD_ATTR_NAME: {
-            /* name */
-            if(cmd == MTHREAD_ATTR_SET) {
-                char *src, *dst;
-                src = va_arg(ap, char *);
-                dst = a->a_name;
-                util_strncpy(dst, src, MTHREAD_TCB_NAMELEN);
-            }
-            else {
-                char *src, **dst;
-                src = a->a_name;
-                dst = va_arg(ap, char **);
-                *dst = src;
-            }
-            break;
-        }
-        case MTHREAD_ATTR_JOINABLE: {
-            /* detachment type */
-            int val, *src, *dst;
-            if(cmd == MTHREAD_ATTR_SET) {
-                src = &val; 
-                val = va_arg(ap, int);
-                dst = &a->a_joinable;
-            }
-            else {
-                src = &a->a_joinable;
-                dst = va_arg(ap, int *);
-            }
-            *dst = *src;
-            break;
-        }
-        case MTHREAD_ATTR_STACK_SIZE: {
-            /* stack size */
-            size_t val, *src, *dst;
-            if(cmd == MTHREAD_ATTR_SET) {
-                src = &val; 
-                val = va_arg(ap, size_t);
-                dst = &a->a_stacksize;
-            }
-            else {
-                src = &a->a_stacksize;
-                dst = va_arg(ap, size_t *);
-            }
-            *dst = *src;
-            break;
-        }
-        case MTHREAD_ATTR_STACK_ADDR: {
-            /* stack address */
-            void *val, **src, **dst;
-            if(cmd == MTHREAD_ATTR_SET) {
-                src = &val; 
-                val = va_arg(ap, void *);
-                dst = &a->a_stackaddr;
-            }
-            else {
-                src = &a->a_stackaddr;
-                dst = va_arg(ap, void **);
-            }
-            *dst = *src;
-            break;
-        }
-        default:
-            return EINVAL;
-    }
+    free(a);
     return 0;
 }
