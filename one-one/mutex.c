@@ -50,7 +50,7 @@ int thread_mutex_lock(mthread_mutex_t *mutex) {
 
 int thread_mutex_trylock(mthread_mutex_t *mutex) {
     assert(mutex);
-    return atomic_compare_exchange_strong(mutex, UNLOCKED, UNLOCKED) ? 0 : EBUSY;
+    return atomic_cas(mutex, UNLOCKED, UNLOCKED) ? 0 : EBUSY;
 }
 
 int thread_mutex_unlock(mthread_mutex_t *mutex) {
