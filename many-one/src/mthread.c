@@ -129,6 +129,7 @@ int thread_init(void) {
     current->tid = unique++;
     current->state = RUNNING;
     current->joined_on = -1;
+    current->start_routine = current->arg = current->result = NULL;
 
     /* Setting up signal handler */
     struct sigaction setup_action;
