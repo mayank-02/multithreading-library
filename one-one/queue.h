@@ -1,4 +1,4 @@
-#include "mthread.h" 
+#include "mthread.h"
 
 typedef struct node {
     mthread *thd;
@@ -17,5 +17,5 @@ void enqueue(queue *q, mthread *thd);
 mthread *dequeue(queue *q);
 int getcount(queue *q);
 void display(queue *q);
-mthread *search_on_tid(queue *q, unsigned long int tid);
-void destroy(queue *q);
+mthread *search_on_tid(queue *q, mthread_t tid);
+int destroy(queue *q);

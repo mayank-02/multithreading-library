@@ -69,7 +69,7 @@ void display(queue *q) {
     printf("\n");
 }
 
-mthread *search_on_tid(queue *q, unsigned long int tid) {
+mthread *search_on_tid(queue *q, mthread_t tid) {
     if(isempty(q))
         return NULL;
     
@@ -83,13 +83,10 @@ mthread *search_on_tid(queue *q, unsigned long int tid) {
     return NULL;
 }
 
-void destroy(queue *q) {
-    if(isempty(q))
-        return;
+int destroy(queue *q) {
+    if(!isempty(q))
+        return -1;
 
-    while(q->count--) {
-        dequeue(q);
-    }
-    
-    return;
+    free(q);
+    return 0;
 }
