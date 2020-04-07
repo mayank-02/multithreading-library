@@ -61,10 +61,10 @@ static int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
             if(cmd == MTHREAD_ATTR_SET) {
                 src = &val;
                 val = va_arg(ap, void *);
-                dst = &a->a_base;
+                dst = &a->a_stack_base;
             }
             else {
-                src = &a->a_base;
+                src = &a->a_stack_base;
                 dst = va_arg(ap, void **);
             }
             *dst = *src;
@@ -95,7 +95,7 @@ int mthread_attr_init(mthread_attr_t *a) {
     util_strncpy(a->a_name, "Unknown", MTHREAD_TCB_NAMELEN);
     a->a_detach_state = JOINABLE;
     a->a_stack_size = 8196 * 1024;
-    a->a_base = NULL;
+    a->a_stack_base = NULL;
 
     return 0;
 }
