@@ -17,8 +17,9 @@ void handler(int sig) {
 }
 
 void *func1(void *arg) {
-    print("Thread1: Entered\n");
     signal(SIGUSR1, handler);
+    print("Thread1: Entered\n");
+    
 
     thread_spin_lock(&value);
     print("Thread1: Locked\n");    
@@ -57,15 +58,14 @@ int main() {
     mthread_t td1, td2;
     void *ret1, *ret2;
     int err;
-    
     thread_spin_init(&value);
-    
-    err = thread_create(&td2, func1, NULL);
+    thread_init();
+    err = thread_create(&td2, NULL, func1, NULL);
     if(err == -1) {
         perror("thread_create1");
     }
     
-    err = thread_create(&td1, func2, NULL);
+    err = thread_create(&td1, NULL, func2, NULL);
     if(err == -1) {
         perror("thread_create2");
     }

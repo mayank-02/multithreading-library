@@ -71,26 +71,26 @@ void *thread5(void *arg) {
 int main() {
 	mthread_t th1, th2, th3, th4, th5;
 
-   thread_spin_init(&lock);
+	thread_spin_init(&lock);
+	thread_init();
+	thread_create(&th1, NULL, thread1, NULL);
+	thread_create(&th2, NULL, thread2, NULL);
+	thread_create(&th3, NULL, thread3, NULL);
+	thread_create(&th4, NULL, thread4, NULL);
+	thread_create(&th5, NULL, thread5, NULL);
 
-   thread_create(&th1, thread1, NULL);
-	thread_create(&th2, thread2, NULL);
-   thread_create(&th3, thread3, NULL);
-   thread_create(&th4, thread4, NULL);
-   thread_create(&th5, thread5, NULL);
-
-   sleep(1);
+	sleep(1);
 	run = 0;
 
 	thread_join(th1, NULL);
 	thread_join(th2, NULL);
-   thread_join(th3, NULL);
-   thread_join(th4, NULL);
-   thread_join(th5, NULL);
+	thread_join(th3, NULL);
+	thread_join(th4, NULL);
+	thread_join(th5, NULL);
 
-   fprintf(stdout, "c              = %lld \n", c);
+	fprintf(stdout, "c              = %lld \n", c);
 	fprintf(stdout, "c1+c2+c3+c4+c5 = %lld \n", c1+c2+c3+c4+c5);
-   fprintf(stdout, "c1 = %lld c2 = %lld c3 = %lld c4 = %lld c5 = %lld\n", c1, c2, c3, c4, c5);
+	fprintf(stdout, "c1 = %lld c2 = %lld c3 = %lld c4 = %lld c5 = %lld\n", c1, c2, c3, c4, c5);
 	fflush(stdout);
 
    return 0;

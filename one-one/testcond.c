@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include "mthread.h"
@@ -45,12 +46,23 @@ int main (int argc, char *argv[]) {
     print("Starting consumer/producer example...\n");
     thread_mutex_init(&mutex);
     thread_cond_init(&condvar);
+    thread_init();
     mthread_t t1, t2;
-    thread_create(&t1, producer, NULL);
-    thread_create(&t2, consumer, NULL);
+    int join;
+    mthread_attr_t *attr = mthread_attr_new();
+    mthread_attr_get(attr, MTHREAD_ATTR_JOINABLE, &join);
+    printf("Join status: Expected 1 Actual %d\n", join);
+    mthread_attr_set(attr, MTHREAD_ATTR_JOINABLE, DETACHED);
+    mthread_attr_get(attr, MTHREAD_ATTR_JOINABLE, &join);
+    printf("Join status: Expected 0 Actual %d\n", join);
+    thread_create(&t1, NULL, producer, NULL);
+    thread_create(&t2, attr, consumer, NULL);
+    mthread_attr_destroy(attr);
     sleep(5);
     running = 0;
     thread_join(t1, NULL);
-    thread_join(t2, NULL);
+    if(thread_join(t2, NULL)==-1) {
+        
+    };
     return 0;
 }
