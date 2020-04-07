@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <setjmp.h>
 
-#define MTHREAD_TCB_NAMELEN     128
+#define MTHREAD_TCB_NAMELEN     64
 #define MTHREAD_ATTR_DEFAULT    NULL
 typedef pid_t mthread_t;
 
@@ -25,13 +25,16 @@ typedef struct mthread {
     /* The result of the thread function */
     void *result;
     
+    /* Padding for stack canary */
+    int64_t padding;
+    
     /* Base pointer to stack */
-    void *base;
+    void *stack_base;
     
     /* Size of stack */
     size_t stack_size;
 
-    /* Has someone joined on it? */
+    /* Detachment type */
     int detach_state;
     
     /* Name of process for debugging */
@@ -67,7 +70,7 @@ typedef struct mthread_attr {
     int a_detach_state;
 
     /* Stack handling */
-    void *a_base;
+    void *a_stack_base;
     size_t a_stack_size;
 
 } mthread_attr_t;
@@ -107,5 +110,15 @@ void thread_exit(void *retval);
  * Send signal specified by sig to thread
  */
 int thread_kill(mthread_t thread, int sig);
+
+/**
+ * Mark the thread as detached 
+ */
+int thread_detach(mthread_t thread);
+
+/**
+ * Compare Thread IDs 
+ */
+int thread_equal(mthread_t t1, mthread_t t2);
 
 #endif

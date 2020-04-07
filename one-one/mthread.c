@@ -38,6 +38,17 @@ static inline pid_t gettid(void) {
     return syscall(SYS_gettid);
 }
 
+static void cleanup_handler(void) {
+    mthread *t;
+    int n = getcount(task_q);
+    while(n--) {
+        t = dequeue(task_q);
+        deallocate_stack(t->stack_base, t->stack_size);
+        free(t);
+    }
+    free(task_q);
+}
+
 /**
  * Obtain information about calling thread.
  */
@@ -63,12 +74,14 @@ static int thread_start(void *thread) {
 int thread_init(void) {
     thread_spin_init(&lock);
 
-    task_q = malloc(sizeof(queue));
+    task_q = calloc(1, sizeof(queue));
     initialize(task_q);
 
-    mthread *main = (mthread *) malloc(sizeof(mthread));
+    atexit(cleanup_handler);
+
+    mthread *main = (mthread *) calloc(1, sizeof(mthread));
     main->start_routine = main->arg = main->result = NULL;
-    main->base          = NULL;
+    main->stack_base          = NULL;
     main->stack_size    = 0;
     main->tid           = gettid();
     enqueue(task_q, main);
@@ -87,25 +100,32 @@ int thread_init(void) {
 int thread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
     thread_spin_lock(&lock);
 
-    if(getcount(task_q) == nproc)
+    if(getcount(task_q) == nproc) {
+        thread_spin_unlock(&lock);
         return EAGAIN;
+    }
 
-    if(start_routine == NULL)
+    if(start_routine == NULL) {
+        thread_spin_unlock(&lock);
         return EINVAL;
+    }
 
-    mthread *t = (mthread *) malloc(sizeof(mthread));
-    if(t == NULL)
+    mthread *t = (mthread *) calloc(1, sizeof(mthread));
+    if(t == NULL) {
+        thread_spin_unlock(&lock);
         return EAGAIN;
+    }
 
     t->start_routine = start_routine;
     t->arg           = arg;
     t->detach_state  = (attr == NULL ? JOINABLE     : attr->a_detach_state);
     t->stack_size    = (attr == NULL ? stack_size   : attr->a_stack_size);
-    t->base          = (attr == NULL ? NULL         : attr->a_base);
-    if(t->base == NULL) {
-        t->base = allocate_stack(t->stack_size);
-        if(t->base == NULL) {
+    t->stack_base          = (attr == NULL ? NULL         : attr->a_stack_base);
+    if(t->stack_base == NULL) {
+        t->stack_base = allocate_stack(t->stack_size);
+        if(t->stack_base == NULL) {
             free(t);
+            thread_spin_unlock(&lock);
             return ENOMEM;
         }
     }
@@ -116,7 +136,7 @@ int thread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine
         util_strncpy(t->name, attr->a_name, MTHREAD_TCB_NAMELEN);
 
     t->tid = clone(thread_start,
-                   t->base + t->stack_size,
+                   t->stack_base + t->stack_size,
                    CLONE_VM | CLONE_FS | CLONE_FILES |
                    CLONE_SIGHAND |CLONE_THREAD | CLONE_SYSVSEM |
                    CLONE_SETTLS |CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID,
@@ -125,8 +145,9 @@ int thread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine
                    t,
                    &t->futex);
     if(t->tid == -1) {
-        deallocate_stack(t->base, t->stack_size);
+        deallocate_stack(t->stack_base, t->stack_size);
         free(t);
+        thread_spin_unlock(&lock);
         return errno;
     }
 
@@ -144,15 +165,18 @@ int thread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine
  * start function.
  */
 int thread_join(mthread_t thread, void **retval) {
-    /* Search in queue for tcb corr to tid */
     thread_spin_lock(&lock);
+    
     mthread *target = search_on_tid(task_q, thread);
-    if(target == NULL)
+    if(target == NULL) {
+        thread_spin_unlock(&lock);
         return ESRCH;
+    }
 
-    if(target->detach_state == DETACHED || target->detach_state == JOINED)
+    if(target->detach_state == DETACHED || target->detach_state == JOINED) {
+        thread_spin_unlock(&lock);
         return EINVAL;
-
+    }
 
     target->detach_state = JOINED;
     thread_spin_unlock(&lock);
@@ -198,4 +222,29 @@ int thread_kill(mthread_t thread, int sig) {
         return errno;
 
     return 0;
+}
+
+int thread_detach(mthread_t thread) {
+    thread_spin_lock(&lock);
+    
+    mthread *target = search_on_tid(task_q, thread);
+    
+    if(target == NULL) {
+        thread_spin_unlock(&lock);
+        return ESRCH;
+    }
+
+    if(target->detach_state == JOINED) {
+        thread_spin_unlock(&lock);
+        return EINVAL;
+    }
+
+    target->detach_state = DETACHED;
+    thread_spin_unlock(&lock);
+    
+    return 0;
+}
+
+int thread_equal(mthread_t t1, mthread_t t2) {
+    return t1 - t2;    
 }
