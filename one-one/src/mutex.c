@@ -40,10 +40,10 @@ int thread_mutex_lock(mthread_mutex_t *mutex) {
     int c = cmpxchg(mutex, UNLOCKED, LOCKED);
     if(c != 0) {
         do {
-            if(c == 2 || cmpxchg(mutex, LOCKED, LOCKED_WAITING) != 0) {
-                futex(mutex, FUTEX_WAIT, LOCKED_WAITING);
+            if(c == 2 || cmpxchg(mutex, LOCKED, CONTESTED) != 0) {
+                futex(mutex, FUTEX_WAIT, CONTESTED);
             }
-        } while((c = cmpxchg(mutex, UNLOCKED, LOCKED_WAITING)) != 0);
+        } while((c = cmpxchg(mutex, UNLOCKED, CONTESTED)) != 0);
     }
     return 0;
 }
