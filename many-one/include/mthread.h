@@ -118,4 +118,14 @@ void thread_exit(void *retval);
  */
 int thread_kill(mthread_t thread, int sig);
 
+/**
+ * Mark the thread as detached 
+ */
+int thread_detach(mthread_t thread);
+
+/**
+ * Compare Thread IDs 
+ */
+int thread_equal(mthread_t t1, mthread_t t2);
+
 #endif

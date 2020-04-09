@@ -273,7 +273,7 @@ void thread_yield(void) {
 
 int thread_kill(mthread_t thread, int sig) {
     dprintf("%-15s: Started\n", "thread_kill");
-
+    interrupt_disable(&timer);
     if(sig < 0 || sig > NSIG)
         return EINVAL;
 
@@ -290,5 +290,27 @@ int thread_kill(mthread_t thread, int sig) {
 
     dprintf("%-15s: Added signal %d to pending signals of TID %d\n", "thread_kill", sig, target->tid);
     dprintf("%-15s: Exited\n", "thread_kill");
+    interrupt_enable(&timer);
     return 0;
+}
+
+int thread_detach(mthread_t thread) {
+    interrupt_disable(&timer);
+    mthread *target = search_on_tid(task_q, thread);
+    
+    if(target == NULL) {
+        return ESRCH;
+    }
+
+    if(target->joined_on != -1) {
+        return EINVAL;
+    }
+
+    target->joinable = FALSE;
+    interrupt_enable(&timer);
+    return 0;
+}
+
+int thread_equal(mthread_t t1, mthread_t t2) {
+    return t1 - t2;
 }
