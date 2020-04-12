@@ -1,3 +1,10 @@
+/** 
+ * @file attr.c
+ * @brief Attribute handling functions
+ * @author Mayank Jain
+ * @bug No known bugs
+ */
+
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -5,6 +12,14 @@
 #include "mthread.h"
 #include "utils.h"
 
+/**
+ * @brief Controls the attributes depending on the operation
+ * @param[in] cmd Get or Set the attribute
+ * @param[in/out] a Attribute object
+ * @param[in] op Attribute 
+ * @param[in] ap Variable argument list corresponding to attribute
+ * @return On success, returns 0; on error, it returns an error number
+ */
 static int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
     if(a == NULL)
         return EINVAL;
@@ -76,11 +91,15 @@ static int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
     return 0;
 }
 
+/**
+ * @brief Make a new thread attributes object and initialise it
+ * @return On success, returns pointer to attribute object; 
+ * on error, it returns NULL
+ */
 mthread_attr_t *mthread_attr_new(void) {
     mthread_attr_t *a;
     a = (mthread_attr_t *) calloc(1, sizeof(mthread_attr_t));
     if(a == NULL) {
-        /* return ENOMEM; */
         return NULL;
     }
 
@@ -88,6 +107,11 @@ mthread_attr_t *mthread_attr_new(void) {
     return a;
 }
 
+/**
+ * @brief Controls the attributes depending on the operation
+ * @param[in/out] a Attribute object to be initialised
+ * @return On success, returns 0; on error, it returns an error number
+ */
 int mthread_attr_init(mthread_attr_t *a) {
     if(a == NULL)
         return EINVAL;
@@ -100,6 +124,13 @@ int mthread_attr_init(mthread_attr_t *a) {
     return 0;
 }
 
+/**
+ * @brief Get particular attribute from thread attribute object
+ * @param[in] a Attribute object
+ * @param[in] op Attribute
+ * @param[in] ap Variable argument list corresponding to attribute
+ * @return On success, returns 0; on error, it returns an error number
+ */
 int mthread_attr_get(mthread_attr_t *a, int op, ...) {
     va_list ap;
     int ret;
@@ -110,6 +141,13 @@ int mthread_attr_get(mthread_attr_t *a, int op, ...) {
     return ret;
 }
 
+/**
+ * @brief Set particular attribute in thread attribute object
+ * @param[in/out] a Attribute object
+ * @param[in] op Attribute
+ * @param[in] ap Variable argument list corresponding to attribute
+ * @return On success, returns 0; on error, it returns an error number
+ */
 int mthread_attr_set(mthread_attr_t *a, int op, ...) {
     va_list ap;
     int ret;
@@ -120,6 +158,11 @@ int mthread_attr_set(mthread_attr_t *a, int op, ...) {
     return ret;
 }
 
+/**
+ * @brief Destroy thread attribute
+ * @param[in/out] a Attribute object
+ * @return On success, returns 0; on error, it returns an error number
+ */
 int mthread_attr_destroy(mthread_attr_t *a) {
     if(a == NULL)
         return EINVAL;

@@ -1,3 +1,10 @@
+/** 
+ * @file mthread.c
+ * @brief Thread control functions
+ * @author Mayank Jain
+ * @bug No known bugs
+ */
+
 #include <assert.h>
 #include <errno.h>
 #include <unistd.h>
@@ -12,25 +19,21 @@
 #include "stack.h"
 #include "utils.h"
 
-/* For debugging purposes */
-#define DEBUG 0
+/**
+ * @brief For debugging purposes 
+ */
 #define dprintf(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
 
-static queue   *task_q;       /* Queue containing tasks for all threads */
-static mthread *current;      /* Thread which is running */
-static pid_t unique = 0;   /* To allocate unique Thread IDs */
-static mthread_timer_t timer; /* Timer for periodic SIGVTALRM signals */
+static queue   *task_q;       ///< Queue containing tasks for all threads
+static mthread *current;      ///< Thread which is running
+static pid_t unique = 0;      ///< To allocate unique Thread IDs
+static mthread_timer_t timer; ///< Timer for periodic SIGALRM signals
 
-/* Tips
- * 1. Use assert()
- * 2. Declare all internal variables and functions (those that are not called
- * by clients of the library) "static" to prevent naming conflicts with programs
- * that link with your thread library.
+/**
+ * @brief Gets the next ready thread from the task_q
+ * @return On success, pointer to the thread; on error, NULL is returned
  */
-/* copy a string like strncpy() but always null-terminate */
-
-
 static mthread * get_next_ready_thread(void) {
     mthread *runner;
     int i = getcount(task_q);
@@ -53,6 +56,9 @@ static mthread * get_next_ready_thread(void) {
     return NULL;
 }
 
+/**
+ * @brief Cleans up all malloc(3)ed and mmap(3)ed regions
+ */
 static void cleanup_handler(void) {
     dprintf("%-15s: Cleaning up data structures\n", "cleanup_handler");
 
@@ -66,14 +72,23 @@ static void cleanup_handler(void) {
     free(task_q);
 }
 
-static void thread_start(void) {
-    dprintf("%-15s: Entered with TID %d\n", "thread_start", current->tid);
+/**
+ * @brief Wrapper around user start function
+ * @note It makes an implicit call to mthread_exit() to exit the thread
+ */
+static void mthread_start(void) {
+    dprintf("%-15s: Entered with TID %d\n", "mthread_start", current->tid);
     current->result = current->start_routine(current->arg);
-    thread_exit(current->result);
+    mthread_exit(current->result);
 }
 
+/**
+ * @brief Schedules next ready thread
+ * @param[in] signum Signal number for which this function is a handler
+ * @note All signals are blocked in the scheduler
+ */
 static void scheduler(int signum) {
-    dprintf("%-15s: SIGVTALRM received\n", "scheduler");
+    dprintf("%-15s: SIGALRM received\n", "scheduler");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable(&timer);
 
@@ -114,8 +129,14 @@ static void scheduler(int signum) {
     siglongjmp(current->context, 1);
 }
 
-int thread_init(void) {
-    dprintf("%-15s: Started\n", "thread_init");
+/**
+ * @brief Initialise the mthread library
+ * @note It has to be the first mthread API function call in an application,
+ * and is mandatory.
+ * @return On success, returns 0; on error, it returns an error number
+ */
+int mthread_init(void) {
+    dprintf("%-15s: Started\n", "mthread_init");
 
     /* Initialise queues */
     task_q = calloc(1, sizeof(queue));
@@ -125,10 +146,10 @@ int thread_init(void) {
     atexit(cleanup_handler);
 
     /* Make thread control block for main thread */
-    current = (mthread *) calloc(1, sizeof(mthread));
-    current->tid = unique++;
-    current->state = RUNNING;
-    current->joined_on = -1;
+    current                = (mthread *) calloc(1, sizeof(mthread));
+    current->tid           = unique++;
+    current->state         = RUNNING;
+    current->joined_on     = -1;
     current->start_routine = current->arg = current->result = NULL;
 
     /* Setting up signal handler */
@@ -136,35 +157,42 @@ int thread_init(void) {
     sigset_t block_mask;
     sigfillset(&block_mask);
     setup_action.sa_handler = scheduler;
-    setup_action.sa_mask = block_mask;
-    setup_action.sa_flags = 0;
-    sigaction(SIGVTALRM, &setup_action, NULL);
+    setup_action.sa_mask    = block_mask;
+    setup_action.sa_flags   = 0;
+    sigaction(SIGALRM, &setup_action, NULL);
 
     /* Setup timer for regular interrupts */
     interrupt_enable(&timer);
 
-    dprintf("%-15s: Exited\n", "thread_init");
+    dprintf("%-15s: Exited\n", "mthread_init");
     return 0;
 }
 
-int thread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
-    dprintf("%-15s: Started\n", "thread_create");
+/**
+ * @brief Create a new thread
+ * @param[in] thread Pointer to thread handle
+ * @param[in] attr Pointer to attribute object
+ * @param[in] start_routine Start function of the thread
+ * @param[in] arg Arguments to be passed to the start function
+ * @return On success, returns 0; on error, it returns an error number
+ */
+int mthread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
+    dprintf("%-15s: Started\n", "mthread_create");
 
-    interrupt_disable(&timer);
     if(thread == NULL)
         return EFAULT;
 
     if(start_routine == NULL)
         return EFAULT;
 
-    if(unique == MTHREAD_MAX_THREADS) {
+    if(unique == MTHREAD_MAX_THREADS)
         return EAGAIN;
-    }
 
     mthread *tmp = (mthread *) calloc(1, sizeof(mthread));
-    if(tmp == NULL) {
+    if(tmp == NULL)
         return EAGAIN;
-    }
+
+    interrupt_disable(&timer);
 
     tmp->tid            = unique++;
     tmp->state          = READY;
@@ -183,6 +211,7 @@ int thread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_r
     if(tmp->stackaddr == NULL) {
         tmp->stackaddr = allocate_stack(tmp->stacksize);
         if(tmp->stackaddr == NULL) {
+            interrupt_enable(&timer);
             return EAGAIN;
         }
     }
@@ -204,34 +233,43 @@ int thread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_r
     /* Change stack pointer to point to top of stack */
     tmp->context[0].__jmpbuf[JB_SP] = mangle((long int) tmp->stackaddr + tmp->stacksize - sizeof(long int));
     /* Change program counter to point to start function */
-	tmp->context[0].__jmpbuf[JB_PC] = mangle((long int) thread_start);
+	tmp->context[0].__jmpbuf[JB_PC] = mangle((long int) mthread_start);
 
     enqueue(task_q, tmp);
     *thread = tmp->tid;
 
     interrupt_enable(&timer);
-    dprintf("%-15s: Created Thread with TID = %d and put in task queue\n", "thread_create", tmp->tid);
+    dprintf("%-15s: Created Thread with TID = %d and put in task queue\n", "mthread_create", tmp->tid);
     return 0;
 }
 
-int thread_join(mthread_t tid, void **retval) {
-    dprintf("%-15s: Thread TID = %d wants to wait on TID = %d\n", "thread_join", current->tid, tid);
+/**
+ * @brief Join with a terminated thread
+ * @param[in] tid Handle of thread to wait for
+ * @param[in] retval To save the exit status of the target thread
+ * @return On success, returns 0; on error, it returns an error number
+ */
+int mthread_join(mthread_t tid, void **retval) {
+    dprintf("%-15s: Thread TID = %d wants to wait on TID = %d\n", "mthread_join", current->tid, tid);
 
     interrupt_disable(&timer);
     mthread *target = search_on_tid(task_q, tid);
 
     /* Deadlock check */
     if(current->tid == tid) {
+        interrupt_enable(&timer);
         return EDEADLK;
     }
 
     /* Thread exists check */
     if(target == NULL) {
+        interrupt_enable(&timer);
         return ESRCH;
     }
 
     /* Thread is joinable and no one has joined on it check */
     if(!target->joinable || target->joined_on != -1) {
+        interrupt_enable(&timer);
         return EINVAL;
     }
 
@@ -245,13 +283,19 @@ int thread_join(mthread_t tid, void **retval) {
         *retval = target->result;
     }
 
-    dprintf("%-15s: Exited\n", "thread_join");
+    dprintf("%-15s: Exited\n", "mthread_join");
     return 0;
 }
 
-/* Exit the calling thread with return value retval. */
-void thread_exit(void *retval) {
-    dprintf("%-15s: TID %d exiting\n", "thread_exit", current->tid);
+/**
+ * @brief Terminate calling thread
+ * @param[in] retval Return value of the thread
+ * @return Does not return to the caller
+ * @note Performing a return from the start funciton of any thread results in 
+ * an implicit call to mthread_exit()
+ */
+void mthread_exit(void *retval) {
+    dprintf("%-15s: TID %d exiting\n", "mthread_exit", current->tid);
     interrupt_disable(&timer);
 
     current->state  = FINISHED;
@@ -263,54 +307,81 @@ void thread_exit(void *retval) {
     }
 
     interrupt_enable(&timer);
-    thread_yield();
+    mthread_yield();
 }
 
-void thread_yield(void) {
-    dprintf("%-15s: Yielding to next thread\n", "thread_yield");
-    raise(SIGVTALRM);
+/**
+ * @brief Yield the processor
+ */
+void mthread_yield(void) {
+    dprintf("%-15s: Yielding to next thread\n", "mthread_yield");
+    raise(SIGALRM);
 }
 
-int thread_kill(mthread_t thread, int sig) {
-    dprintf("%-15s: Started\n", "thread_kill");
-    interrupt_disable(&timer);
+/**
+ * @brief Send a signal to a thread
+ * @param[in] thread Thread handle of thread to which signal needs to be sent
+ * @param[in] sig    Signal number corresponding to signal
+ * @return On success, returns 0; on error, it returns an error number
+ */
+int mthread_kill(mthread_t thread, int sig) {
+    dprintf("%-15s: Started\n", "mthread_kill");
     if(sig < 0 || sig > NSIG)
         return EINVAL;
-
+    
     if(thread == current->tid) {
-        dprintf("%-15s: Raised signal %d for tid %d\n", "thread_kill", sig, current->tid);
+        dprintf("%-15s: Raised signal %d for tid %d\n", "mthread_kill", sig, current->tid);
         return raise(sig);
     }
 
+    interrupt_disable(&timer);
     mthread *target = search_on_tid(task_q, thread);
-    if(target == NULL)
+    if(target == NULL) {
+        interrupt_enable(&timer);
         return EINVAL;
+    }
 
     sigaddset(&target->sigpending, sig);
 
-    dprintf("%-15s: Added signal %d to pending signals of TID %d\n", "thread_kill", sig, target->tid);
-    dprintf("%-15s: Exited\n", "thread_kill");
+    dprintf("%-15s: Added signal %d to pending signals of TID %d\n", "mthread_kill", sig, target->tid);
+    dprintf("%-15s: Exited\n", "mthread_kill");
     interrupt_enable(&timer);
     return 0;
 }
 
-int thread_detach(mthread_t thread) {
+/**
+ * @brief Detach a thread
+ * @param[in] thread Thread handle of thread to be detached
+ * @return On success, returns 0; on error, it returns an error number
+ * @note Once a thread has been detached, it can't be joined with mthread_join * or be made joinable again.
+ */
+int mthread_detach(mthread_t thread) {
     interrupt_disable(&timer);
     mthread *target = search_on_tid(task_q, thread);
-    
+
     if(target == NULL) {
+        interrupt_enable(&timer);
         return ESRCH;
     }
 
     if(target->joined_on != -1) {
+        interrupt_enable(&timer);
         return EINVAL;
     }
 
     target->joinable = FALSE;
+    dprintf("%-15s: Marked TID %d as detached\n", "mthread_detach", thread);
+
     interrupt_enable(&timer);
     return 0;
 }
 
-int thread_equal(mthread_t t1, mthread_t t2) {
+/**
+ * @brief Compare Thread IDs
+ * @param[in] t1 Thread handle of thread 1
+ * @param[in] t2 Thread handle of thread 2
+ * @return 0 on success, and non-zero on failure
+ */
+int mthread_equal(mthread_t t1, mthread_t t2) {
     return t1 - t2;
 }
