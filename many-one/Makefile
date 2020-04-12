@@ -25,6 +25,7 @@ CFLAGS   :=  -g -Wall -fpic
 # -fpic : Use Position Independent Code. It means that the generated machine 			  code is not dependent on being located at a specific address in order 		  to work Ex. Jumps would be generated as relative rather than absolute
 LIB := libmthread.a
 LDFLAGS  := -L.
+LDLIBS := -lm
 
 CC := gcc
 AR := /usr/bin/ar
@@ -44,7 +45,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(BIN_DIR)/%: $(TEST_DIR)/%.o $(LIB)
-	$(CC) $(LDFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(TEST_DIR)/%.o: $(TEST_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
