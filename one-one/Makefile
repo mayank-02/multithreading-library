@@ -2,6 +2,7 @@ SRC_DIR  := src
 OBJ_DIR  := obj
 TEST_DIR := test
 BIN_DIR  := bin
+DOC_DIR  := docs
 
 SRC := $(wildcard $(SRC_DIR)/*.c)
 # $(info SRC is $(SRC))
@@ -23,23 +24,30 @@ CFLAGS   :=  -g -Wall -fpic
 # -g	: For debugging purposes
 # -Wall : Print all warnings
 # -fpic : Use Position Independent Code. It means that the generated machine 			  code is not dependent on being located at a specific address in order 		  to work Ex. Jumps would be generated as relative rather than absolute
+TESTCFLAGS := -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -Wno-return-type
 LIB := libmthread.a
+LIBSO := libmthread.so
 LDFLAGS  := -L.
 # LDLIBS := -lm
 
 CC := gcc
 AR := /usr/bin/ar
-.PHONY: all clean lib exe
+RANLIB := /usr/bin/ranlib
+.PHONY: all clean lib exe docs
 
 DEBUG := 1
 ifeq ($(DEBUG),1)
 CFLAGS += -DDEBUG
 endif
 
-all: $(LIB) $(EXE)
+all: $(LIBSO) $(LIB) $(EXE) $(LIBSO)
+
+$(LIBSO) : $(OBJ)
+	$(CC) -shared $(OBJ) -o $@
 
 $(LIB) : $(OBJ)
 	$(AR) rcs $(LIB) $(OBJ)
+	$(RANLIB) $(LIB)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
@@ -48,10 +56,13 @@ $(BIN_DIR)/%: $(TEST_DIR)/%.o $(LIB)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(TEST_DIR)/%.o: $(TEST_DIR)/%.c | $(OBJ_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCFLAGS) -c $< -o $@
 
 $(OBJ_DIR):
 	mkdir $@
 
+docs:
+	doxygen $(DOC_DIR)/doxy-config
+
 clean:
-	$(RM) $(OBJ) $(TEST_OBJ) $(LIB) $(EXE)
+	$(RM) -rf $(OBJ) $(TEST_OBJ) $(LIB) $(EXE) $(LIBSO) $(DOC_DIR)/html $(DOC_DIR)/latex
