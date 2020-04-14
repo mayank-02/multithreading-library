@@ -1,4 +1,6 @@
 # Ignore local resources
 Resources/
-many-one/*.o
-one-one/*.o
+many-one/bin/
+many-one/obj/*.o
+one-one/bin/
+one-one/obj/*.o
