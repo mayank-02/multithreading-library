@@ -40,69 +40,94 @@ int mthread_attr_destroy(mthread_attr_t *attr);
 /* Thread control functions */
 
 int mthread_init(void);
-/** 
+/**
  * Create a new thread starting at the routine given, which will
  * be passed arg.
  */
 int mthread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routine)(void *), void *arg);
 
-/** 
+/**
  * Wait until the specified thread has exited.
  * Returns the value returned by that thread's
  * start function.
  */
 int mthread_join(mthread_t thread, void **retval);
 
-/** 
+/**
  * Yield to scheduler
  */
 void mthread_yield(void);
 
-/** 
- * Exit the calling thread with return value retval. 
+/**
+ * Exit the calling thread with return value retval.
  */
 void mthread_exit(void *retval);
 
-/** 
+/**
  * Send signal specified by sig to thread
  */
 int mthread_kill(mthread_t thread, int sig);
 
 /**
- * Mark the thread as detached 
+ * Mark the thread as detached
  */
 int mthread_detach(mthread_t thread);
 
 /**
- * Compare Thread IDs 
+ * Compare Thread IDs
  */
 int mthread_equal(mthread_t t1, mthread_t t2);
 
 
 /* Synchronisation primitives */
-
 struct mthread_spinlock;
 typedef struct mthread_spinlock mthread_spinlock_t;
 
+/*
+ * Initialise the spinlock
+ */
 int mthread_spin_init(mthread_spinlock_t *lock);
 
+/*
+ * Lock the spinlock
+ */
 int mthread_spin_lock(mthread_spinlock_t *lock);
 
+/*
+ * Try locking the spinlock
+ */
 int mthread_spin_trylock(mthread_spinlock_t *lock);
 
+/*
+ * Unlock the spinlock
+ */
 int mthread_spin_unlock(mthread_spinlock_t *lock);
 
+#define MTHREAD_MUTEX_INITIALIZER { 0 }
 struct mthread_mutex;
 typedef struct mthread_mutex mthread_mutex_t;
 
+/*
+ * Initialise the mutex
+ */
 int mthread_mutex_init(mthread_mutex_t *mutex);
 
+/*
+ * Try locking the mutex
+ */
 int mthread_mutex_trylock(mthread_mutex_t *mutex);
 
+/*
+ * Lock the mutex
+ */
 int mthread_mutex_lock(mthread_mutex_t *mutex);
 
+/*
+ * Unlock the mutex
+ */
 int mthread_mutex_unlock(mthread_mutex_t *mutex);
 
+#define MTHREAD_COND_INITIALIZER { 0 , 0 }
 struct mthread_cond;
 typedef struct mthread_cond mthread_cond_t;
 
@@ -112,6 +137,7 @@ int mthread_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
 
 int mthread_cond_signal(mthread_cond_t *cond);
 
+#define MTHREAD_SEM_INITIALIZER { 0 }
 struct mthread_sem;
 typedef struct mthread_sem mthread_sem_t;
 

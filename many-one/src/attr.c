@@ -1,4 +1,4 @@
-/** 
+/**
  * @file attr.c
  * @brief Attribute handling functions
  * @author Mayank Jain
@@ -15,8 +15,8 @@
 /**
  * @brief Controls the attributes depending on the operation
  * @param[in] cmd Get or Set the attribute
- * @param[in/out] a Attribute object
- * @param[in] op Attribute 
+ * @param[in,out] a Attribute object
+ * @param[in] op Attribute
  * @param[in] ap Variable argument list corresponding to attribute
  * @return On success, returns 0; on error, it returns an error number
  */
@@ -93,7 +93,7 @@ static int mthread_attr_ctrl(int cmd, mthread_attr_t *a, int op, va_list ap) {
 
 /**
  * @brief Make a new thread attributes object and initialise it
- * @return On success, returns pointer to attribute object; 
+ * @return On success, returns pointer to attribute object;
  * on error, it returns NULL
  */
 mthread_attr_t *mthread_attr_new(void) {
@@ -109,7 +109,7 @@ mthread_attr_t *mthread_attr_new(void) {
 
 /**
  * @brief Controls the attributes depending on the operation
- * @param[in/out] a Attribute object to be initialised
+ * @param[in,out] a Attribute object to be initialised
  * @return On success, returns 0; on error, it returns an error number
  */
 int mthread_attr_init(mthread_attr_t *a) {
@@ -128,7 +128,7 @@ int mthread_attr_init(mthread_attr_t *a) {
  * @brief Get particular attribute from thread attribute object
  * @param[in] a Attribute object
  * @param[in] op Attribute
- * @param[in] ap Variable argument list corresponding to attribute
+ * @param[in] ... Variable argument list corresponding to attribute
  * @return On success, returns 0; on error, it returns an error number
  */
 int mthread_attr_get(mthread_attr_t *a, int op, ...) {
@@ -143,9 +143,9 @@ int mthread_attr_get(mthread_attr_t *a, int op, ...) {
 
 /**
  * @brief Set particular attribute in thread attribute object
- * @param[in/out] a Attribute object
+ * @param[in,out] a Attribute object
  * @param[in] op Attribute
- * @param[in] ap Variable argument list corresponding to attribute
+ * @param[in] ... Variable argument list corresponding to attribute
  * @return On success, returns 0; on error, it returns an error number
  */
 int mthread_attr_set(mthread_attr_t *a, int op, ...) {
@@ -160,7 +160,7 @@ int mthread_attr_set(mthread_attr_t *a, int op, ...) {
 
 /**
  * @brief Destroy thread attribute
- * @param[in/out] a Attribute object
+ * @param[in,out] a Attribute object
  * @return On success, returns 0; on error, it returns an error number
  */
 int mthread_attr_destroy(mthread_attr_t *a) {

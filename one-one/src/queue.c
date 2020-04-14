@@ -1,4 +1,4 @@
-/** 
+/**
  * @file queue.c
  * @brief Singly linked queue for thread control blocks
  * @author Mayank Jain
@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "queue.h" 
+#include "queue.h"
 
 /**
  * @brief Initialise the queue
@@ -63,17 +63,17 @@ void enqueue(queue *q, mthread *thd) {
 mthread *dequeue(queue *q) {
     if(isempty(q))
         return NULL;
-    
+
     node *tmp = q->head;
     mthread *n = q->head->thd;
-    
+
     q->head = q->head->next;
     q->count--;
-    
+
     if(q->head == NULL) {
         q->tail = NULL;
     }
-    
+
     free(tmp);
     return(n);
 }
@@ -113,7 +113,7 @@ void display(queue *q) {
 mthread *search_on_tid(queue *q, mthread_t tid) {
     if(isempty(q))
         return NULL;
-    
+
     node *runner = q->head;
     while(runner) {
         if (runner->thd->tid == tid) {

@@ -1,18 +1,20 @@
-#include "mthread.h" 
+#include "mthread.h"
 
 /// Node of a queue
 typedef struct node {
+    /// TCB
     mthread *thd;
+    /// Pointer to next node
     struct node *next;
 } node;
 
 /// Queue
 typedef struct queue {
-    /* Count of nodes in the queue */
+    /// Count of nodes in the queue
     int count;
-    /* Pointer to head node */
+    /// Pointer to head node
     node *head;
-    /* Pointer to tail node */
+    /// Pointer to tail node
     node *tail;
 } queue;
 

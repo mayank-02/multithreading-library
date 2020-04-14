@@ -1,4 +1,4 @@
-/** 
+/**
  * @file sem.c
  * @brief Semaphore Synchronisation Primitive
  * @author Mayank Jain
@@ -27,8 +27,8 @@ static inline int futex(int *uaddr, int futex_op, int val) {
 
 /**
  * @brief Initialise the semaphore
- * @param[in/out] sem Pointer to semaphore
- * @param[in/out] initval Value to be initialised to
+ * @param[in,out] sem Pointer to semaphore
+ * @param[in,out] initval Value to be initialised to
  * @return On success, returns 0
  */
 int mthread_sem_init(mthread_sem_t *sem, uint32_t initval) {
@@ -39,8 +39,8 @@ int mthread_sem_init(mthread_sem_t *sem, uint32_t initval) {
 
 /**
  * @brief Decrements (locks) the semaphore
- * @param[in/out] sem Pointer to semaphore
- * @note If the semaphore currently has the value zero, then the 
+ * @param[in,out] sem Pointer to semaphore
+ * @note If the semaphore currently has the value zero, then the
  * call blocks  until it becomes possible to perform the decrement
  * @return On success, returns 0
  */
@@ -63,7 +63,7 @@ int mthread_sem_wait(mthread_sem_t *sem) {
 
 /**
  * @brief Increments (unlocks) the semaphore
- * @param[in/out] sem Pointer to semaphore
+ * @param[in,out] sem Pointer to semaphore
  * @return On success, returns 0
  */
 int mthread_sem_post(mthread_sem_t *sem) {

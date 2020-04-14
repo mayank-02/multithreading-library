@@ -1,4 +1,4 @@
-/** 
+/**
  * @file queue.c
  * @brief Singly linked queue for thread control blocks
  * @author Mayank Jain
@@ -139,6 +139,6 @@ void destroy(queue *q) {
         free(curr);
         curr = next;
     }
-    
+
     return;
 }

@@ -1,4 +1,4 @@
-/** 
+/**
  * @file mthread.c
  * @brief Thread control functions
  * @author Mayank Jain
@@ -76,8 +76,10 @@ static void cleanup_handler(void) {
     int n = getcount(task_q);
     while(n--) {
         t = dequeue(task_q);
-        deallocate_stack(t->stack_base, t->stack_size);
-        free(t);
+        if(t->detach_state == JOINED) {
+            deallocate_stack(t->stack_base, t->stack_size);
+            free(t);
+        }
     }
     free(task_q);
 }
@@ -88,6 +90,10 @@ static void cleanup_handler(void) {
  */
 static mthread *mthread_self(void) {
     uint64_t ptr;
+    pid_t tid = gettid();
+    if(tid == getpid()){
+        return NULL;
+    }
 
     int err = arch_prctl(ARCH_GET_FS, &ptr);
     if(err == -1)
@@ -125,6 +131,7 @@ int mthread_init(void) {
 
     mthread *main_thread = (mthread *) calloc(1, sizeof(mthread));
     main_thread->start_routine = main_thread->arg = main_thread->result = NULL;
+    main_thread->detach_state  = JOINABLE;
     main_thread->stack_base    = NULL;
     main_thread->stack_size    = 0;
     main_thread->tid           = gettid();
@@ -209,13 +216,13 @@ int mthread_create(mthread_t *thread, mthread_attr_t *attr, void *(*start_routin
 
 /**
  * @brief Join with a terminated thread
- * @param[in] tid Handle of thread to wait for
+ * @param[in] thread Handle of thread to wait for
  * @param[in] retval To save the exit status of the target thread
  * @return On success, returns 0; on error, it returns an error number
  */
 int mthread_join(mthread_t thread, void **retval) {
     mthread_spin_lock(&lock);
-    
+
     mthread *target = search_on_tid(task_q, thread);
     if(target == NULL) {
         mthread_spin_unlock(&lock);
@@ -251,12 +258,17 @@ void mthread_yield(void) {
  * @brief Terminate calling thread
  * @param[in] retval Return value of the thread
  * @return Does not return to the caller
- * @note Performing a return from the start funciton of any thread results in 
+ * @note Performing a return from the start funciton of any thread results in
  * an implicit call to mthread_exit()
  */
 void mthread_exit(void *retval) {
     mthread_spin_lock(&lock);
     mthread *self = mthread_self();
+    if(self == NULL) {
+        mthread_spin_unlock(&lock);
+        return;
+    }
+
     self->result = retval;
     mthread_spin_unlock(&lock);
     siglongjmp(self->context, 1);
@@ -288,9 +300,9 @@ int mthread_kill(mthread_t thread, int sig) {
  */
 int mthread_detach(mthread_t thread) {
     mthread_spin_lock(&lock);
-    
+
     mthread *target = search_on_tid(task_q, thread);
-    
+
     if(target == NULL) {
         mthread_spin_unlock(&lock);
         return ESRCH;
@@ -303,7 +315,7 @@ int mthread_detach(mthread_t thread) {
 
     target->detach_state = DETACHED;
     mthread_spin_unlock(&lock);
-    
+
     return 0;
 }
 
@@ -314,5 +326,5 @@ int mthread_detach(mthread_t thread) {
  * @return 0 on success, and non-zero on failure
  */
 int mthread_equal(mthread_t t1, mthread_t t2) {
-    return t1 - t2;    
+    return t1 - t2;
 }

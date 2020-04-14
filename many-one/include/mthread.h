@@ -3,13 +3,18 @@
 
 #include "types.h"
 
+enum {
+    DETACHED,
+    JOINABLE,
+};
+
 /// Operation to perform on thread attribute structure
 enum {
     MTHREAD_ATTR_GET,
     MTHREAD_ATTR_SET
 };
 
-/// Attribute to read/write in thread attribute structure  
+/// Attribute to read/write in thread attribute structure
 enum {
     MTHREAD_ATTR_NAME,       /* RW [char *]    name of thread      */
     MTHREAD_ATTR_JOINABLE,   /* RW [int]       detachment type     */
@@ -75,23 +80,23 @@ int mthread_equal(mthread_t t1, mthread_t t2);
 struct mthread_spinlock;
 typedef struct mthread_spinlock mthread_spinlock_t;
 
-/* 
- * Initialise the spinlock 
+/*
+ * Initialise the spinlock
  */
 int mthread_spin_init(mthread_spinlock_t *lock);
 
-/* 
- * Lock the spinlock 
+/*
+ * Lock the spinlock
  */
 int mthread_spin_lock(mthread_spinlock_t *lock);
 
-/* 
- * Try locking the spinlock 
+/*
+ * Try locking the spinlock
  */
 int mthread_spin_trylock(mthread_spinlock_t *lock);
 
-/* 
- * Unlock the spinlock 
+/*
+ * Unlock the spinlock
  */
 int mthread_spin_unlock(mthread_spinlock_t *lock);
 

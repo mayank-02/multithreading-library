@@ -1,5 +1,5 @@
-/** 
- * @file spinlock.c
+/**
+ * @file spin_lock.c
  * @brief Spinlock synchronisation primitive
  * @author Mayank Jain
  * @bug No known bugs
@@ -12,11 +12,11 @@
 
 /**
  * @brief Atomic Compare and Swap
- * @param[in/out] lock_addr Pointer to lock
+ * @param[in,out] lock_addr Pointer to lock
  * @param[in] expected Expected value of lock
  * @param[in] desirec Desired value of lock
- * @return Upon success, the macro returns true. Upon failure, the desired 
- * value is overwritten with the value of the atomic variable and false is 
+ * @return Upon success, the macro returns true. Upon failure, the desired
+ * value is overwritten with the value of the atomic variable and false is
  * returned.
  */
 static inline int atomic_cas(int *lock_addr, int expected, int desired) {
@@ -38,7 +38,7 @@ int mthread_spin_init(mthread_spinlock_t *lock) {
 
 /**
  * @brief Lock a spinlock
- * @param[in/out] lock Pointer to the spinlock
+ * @param[in,out] lock Pointer to the spinlock
  * @note The call is blocking and will return only if the lock is acquired
  * @return On success, returns 0; on error, it returns an error number
  */
@@ -50,7 +50,7 @@ int mthread_spin_lock(mthread_spinlock_t *lock) {
 
 /**
  * @brief Try locking a spinlock
- * @param[in/out] lock Pointer to the spinlock
+ * @param[in,out] lock Pointer to the spinlock
  * @note The call returns immediately if acquiring lock fails
  * @return On success, returns 0; on error, it returns an error number
  */
@@ -64,8 +64,8 @@ int mthread_spin_trylock(mthread_spinlock_t *lock) {
 
 /**
  * @brief Unlock a spinlock
- * @param[in/out] lock Pointer to the spinlock
- * @note Calling mthread_spin_unlock() on a lock that is not held by the 
+ * @param[in,out] lock Pointer to the spinlock
+ * @note Calling mthread_spin_unlock() on a lock that is not held by the
  * caller results in undefined behavior.
  * @return On success, returns 0; on error, it returns an error number
  */

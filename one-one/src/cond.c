@@ -1,4 +1,4 @@
-/** 
+/**
  * @file cond.c
  * @brief Condition Variable Synchronisation Primitive
  * @author Mayank Jain
@@ -27,28 +27,29 @@ static inline int futex(int *uaddr, int futex_op, int val) {
 
 /**
  * @brief Initialise the condition variable
- * @param[in/out] cond Pointer to condition variable
+ * @param[in,out] cond Pointer to condition variable
  * @return Always returns 0
  */
 int mthread_cond_init(mthread_cond_t *cond) {
     assert(cond);
-    
+
     atomic_init(&cond->value, 0);
     atomic_init(&cond->previous, 0);
-    
+
     return 0;
 }
 
 /**
  * @brief Atomically unlocks the mutex and waits for CV to be signaled
- * @param[in/out] cond Pointer to condition variable
- * @note The thread execution is suspended and does not consume any 
+ * @param[in,out] cond Pointer to condition variable
+ * @param[in,out] mutex Pointer to associated mutex
+ * @note The thread execution is suspended and does not consume any
  * CPU time until the condition variable is signaled.
  * @return On success, returns 0
  */
 int mthread_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex) {
     assert(cond && mutex);
-    
+
     int value = atomic_load(&cond->value);
     atomic_store(&cond->previous, value);
 
@@ -60,9 +61,9 @@ int mthread_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex) {
 }
 
 /**
- * @brief Restarts one of the threads that are waiting 
+ * @brief Restarts one of the threads that are waiting
  * on the condition variable
- * @param[in/out] cond Pointer to condition variable
+ * @param[in,out] cond Pointer to condition variable
  * @return On success, returns 0
  */
 int mthread_cond_signal(mthread_cond_t *cond) {
@@ -70,8 +71,8 @@ int mthread_cond_signal(mthread_cond_t *cond) {
 
     unsigned value = 1u + atomic_load(&cond->previous);
     atomic_store(&cond->value, value);
-    
+
     futex(&cond->value, FUTEX_WAKE_PRIVATE, 1);
-    
+
     return 0;
 }

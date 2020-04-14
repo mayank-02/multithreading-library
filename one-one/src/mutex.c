@@ -1,4 +1,4 @@
-/** 
+/**
  * @file mutex.c
  * @brief Mutex Synchronisation Primitive
  * @author Mayank Jain
@@ -17,11 +17,11 @@
 
 /**
  * @brief Atomic Compare and Swap
- * @param[in/out] lock_addr Pointer to lock
+ * @param[in,out] lock_addr Pointer to lock
  * @param[in] expected Expected value of lock
  * @param[in] desirec Desired value of lock
- * @return Upon success, the macro returns true. Upon failure, the desired 
- * value is overwritten with the value of the atomic variable and false is 
+ * @return Upon success, the macro returns true. Upon failure, the desired
+ * value is overwritten with the value of the atomic variable and false is
  * returned.
  */
 static inline int atomic_cas(int *lock_addr, int expected, int desired) {
@@ -44,7 +44,7 @@ static inline int futex(int *uaddr, int futex_op, int val) {
  * Atomically performs the equivalent of:
  * if (*ptr == *oldval)
  *     *ptr = newval;
- * @param[in/out] lock_addr Pointer to lock
+ * @param[in,out] lock_addr Pointer to lock
  * @param[in] expected Expected value of lock
  * @param[in] desirec Desired value of lock
  * @return Returns the expected value
@@ -57,7 +57,7 @@ static inline int cmpxchg(int *lock_addr, int expected, int desired) {
 
 /**
  * @brief Initialise the mutex
- * @param[in/out] mutex Pointer to mutex
+ * @param[in,out] mutex Pointer to mutex
  * @return Always returns 0
  */
 int mthread_mutex_init(mthread_mutex_t *mutex) {
@@ -68,8 +68,8 @@ int mthread_mutex_init(mthread_mutex_t *mutex) {
 
 /**
  * @brief Lock the mutex
- * @param[in/out] mutex Pointer to mutex
- * @note If the mutex is already locked by another thread, the 
+ * @param[in,out] mutex Pointer to mutex
+ * @note If the mutex is already locked by another thread, the
  * calling thread is suspended until the mutex is unlocked.
  * @return On success, returns 0
  */
@@ -88,8 +88,8 @@ int mthread_mutex_lock(mthread_mutex_t *mutex) {
 
 /**
  * @brief Try locking the mutex
- * @param[in/out] mutex Pointer to mutex
- * @note does not block the calling  thread  if  the  mutex  is  
+ * @param[in,out] mutex Pointer to mutex
+ * @note does not block the calling  thread  if  the  mutex  is
  * already locked  by  another  thread
  * @return On locking returns 0, else EBUSY
  */
@@ -100,7 +100,7 @@ int mthread_mutex_trylock(mthread_mutex_t *mutex) {
 
 /**
  * @brief Unlock the mutex
- * @param[in/out] mutex Pointer to mutex
+ * @param[in,out] mutex Pointer to mutex
  * @return On success, returns 0
  */
 int mthread_mutex_unlock(mthread_mutex_t *mutex) {

@@ -1,4 +1,4 @@
-/** 
+/**
  * @file mthread.c
  * @brief Thread control functions
  * @author Mayank Jain
@@ -8,7 +8,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <unistd.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -20,15 +19,19 @@
 #include "utils.h"
 
 /**
- * @brief For debugging purposes 
+ * @brief For debugging purposes
  */
-#define dprintf(fmt, ...) \
+#ifdef DEBUG
+    #define dprintf(fmt, ...) \
             do { if (DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__); } while (0)
+#else
+    #define dprintf(fmt, ...) ;
+#endif
 
 static queue   *task_q;       ///< Queue containing tasks for all threads
 static mthread *current;      ///< Thread which is running
 static pid_t unique = 0;      ///< To allocate unique Thread IDs
-static mthread_timer_t timer; ///< Timer for periodic SIGALRM signals
+static mthread_timer_t timer; ///< Timer for periodic SIGVTALRM signals
 
 /**
  * @brief Gets the next ready thread from the task_q
@@ -88,7 +91,7 @@ static void mthread_start(void) {
  * @note All signals are blocked in the scheduler
  */
 static void scheduler(int signum) {
-    dprintf("%-15s: SIGALRM received\n", "scheduler");
+    dprintf("%-15s: SIGVTALRM received\n", "scheduler");
     /* Disable timer interrupts when scheduler is running */
     interrupt_disable(&timer);
 
@@ -159,7 +162,7 @@ int mthread_init(void) {
     setup_action.sa_handler = scheduler;
     setup_action.sa_mask    = block_mask;
     setup_action.sa_flags   = 0;
-    sigaction(SIGALRM, &setup_action, NULL);
+    sigaction(SIGVTALRM, &setup_action, NULL);
 
     /* Setup timer for regular interrupts */
     interrupt_enable(&timer);
@@ -291,7 +294,7 @@ int mthread_join(mthread_t tid, void **retval) {
  * @brief Terminate calling thread
  * @param[in] retval Return value of the thread
  * @return Does not return to the caller
- * @note Performing a return from the start funciton of any thread results in 
+ * @note Performing a return from the start funciton of any thread results in
  * an implicit call to mthread_exit()
  */
 void mthread_exit(void *retval) {
@@ -315,7 +318,7 @@ void mthread_exit(void *retval) {
  */
 void mthread_yield(void) {
     dprintf("%-15s: Yielding to next thread\n", "mthread_yield");
-    raise(SIGALRM);
+    raise(SIGVTALRM);
 }
 
 /**
@@ -328,7 +331,7 @@ int mthread_kill(mthread_t thread, int sig) {
     dprintf("%-15s: Started\n", "mthread_kill");
     if(sig < 0 || sig > NSIG)
         return EINVAL;
-    
+
     if(thread == current->tid) {
         dprintf("%-15s: Raised signal %d for tid %d\n", "mthread_kill", sig, current->tid);
         return raise(sig);
@@ -353,7 +356,8 @@ int mthread_kill(mthread_t thread, int sig) {
  * @brief Detach a thread
  * @param[in] thread Thread handle of thread to be detached
  * @return On success, returns 0; on error, it returns an error number
- * @note Once a thread has been detached, it can't be joined with mthread_join * or be made joinable again.
+ * @note Once a thread has been detached, it can't be joined with
+ * mthread_join() or be made joinable again.
  */
 int mthread_detach(mthread_t thread) {
     interrupt_disable(&timer);

@@ -1,4 +1,4 @@
-/** 
+/**
  * @file stack.c
  * @brief Thread stack allocation and deallocation functions
  * @author Mayank Jain
