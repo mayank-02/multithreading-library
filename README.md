@@ -1,7 +1,7 @@
 mthread
 =====
 
-A lightweight and fast C library based on one-one model for user level threading.
+A lightweight and fast C library based on one-one and many-one model for threading.
 
 ## Contents
 - [Building](#building)
@@ -23,7 +23,7 @@ Execute following commands to build mthread using make:
 
 This will create binaries in `bin/` directory and libraries (static and shared) in current directory.
 
-Optionally, you can run `sudo make install` to install edlib library on your machine (on Linux, this will usually install it to `usr/local/lib` and `usr/local/include`).
+Optionally, you can run `sudo make install` to install mthread library on your machine (on Linux, this will usually install it to `usr/local/lib` and `usr/local/include`).
 
 ## Using mthread in your project
 
