@@ -39,7 +39,11 @@ int mthread_attr_destroy(mthread_attr_t *attr);
 
 /* Thread control functions */
 
+/**
+ * Initialise the threading library
+ */
 int mthread_init(void);
+
 /**
  * Create a new thread starting at the routine given, which will
  * be passed arg.

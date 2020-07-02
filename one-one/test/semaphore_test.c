@@ -32,26 +32,25 @@ typedef int buffer_item;
 /* The mutex lock */
 mthread_mutex_t mutex;
 
-/* the semaphores */
+/* The semaphores */
 mthread_sem_t full, empty;
 
-/* the buffer */
+/* The buffer */
 buffer_item buffer[BUFFER_SIZE];
 
-/* buffer counter */
+/* Buffer counter */
 int counter;
 
 /* Thread ID */
 mthread_t tid;
 
-/* the producer thread */
+/* The producer thread */
 void *producer(void *param);
 
-/* the consumer thread */
+/* The consumer thread */
 void *consumer(void *param);
 
-void initializeData()
-{
+void initializeData() {
     /* Create the mutex lock */
     mthread_mutex_init(&mutex);
 
@@ -69,113 +68,107 @@ void initializeData()
 }
 
 /* Add an item to the buffer */
-int insert_item(buffer_item item)
-{
-    /* When the buffer is not full add the item
-      and increment the counter*/
-    if (counter < BUFFER_SIZE)
-    {
+int insert_item(buffer_item item) {
+    if (counter < BUFFER_SIZE) {
+        /* When the buffer is not full add the item */
         buffer[counter] = item;
+        /* Increment the counter */
         counter++;
         return 0;
     }
-    else
-    { /* Error the buffer is full */
+    else {
+        /* Error the buffer is full */
         return -1;
     }
 }
 
 /* Remove an item from the buffer */
-int remove_item(buffer_item *item)
-{
-    /* When the buffer is not empty remove the item
-      and decrement the counter */
-    if (counter > 0)
-    {
+int remove_item(buffer_item *item) {
+    if (counter > 0) {
+        /* When the buffer is not empty remove the item */
         *item = buffer[(counter - 1)];
+        /* Decrement the counter */
         counter--;
         return 0;
     }
-    else
-    { /* Error buffer empty */
+    else { 
+        /* Error buffer empty */
         return -1;
     }
 }
 
 /* Producer Thread */
-void *producer(void *param)
-{
+void *producer(void *param) {
     buffer_item item;
 
-    while (TRUE)
-    {
-        /* sleep for a random period of time */
+    while(TRUE) {
+        /* Sleep for a random period of time */
         long rNum = rand() / RAND_DIVISOR;
         // fprintf(stderr, "Producer sleeping for %ld seconds\n", rNum);
         sleep(rNum);
 
-        /* generate a random number */
+        /* Generate a random number */
         item = rand();
 
-        /* acquire the empty lock */
+        
+        /* Acquire the empty lock */
         mthread_sem_wait(&empty);
-        /* acquire the mutex lock */
+        
+        /* Acquire the mutex lock */
         mthread_mutex_lock(&mutex);
 
-        if (insert_item(item))
-        {
+        if (insert_item(item)) {
             fprintf(stderr, " Producer report error condition\n");
         }
-        else
-        {
+        else {
             printf("Producer produced %d\n", item);
         }
-        /* release the mutex lock */
+        
+        /* Release the mutex lock */
         mthread_mutex_unlock(&mutex);
-        /* signal full */
+        
+        /* Signal full */
         mthread_sem_post(&full);
     }
 }
 
 /* Consumer Thread */
-void *consumer(void *param)
-{
+void *consumer(void *param) {
     buffer_item item;
 
-    while (TRUE)
-    {
-        /* sleep for a random period of time */
+    while (TRUE) {
+        /* Sleep for a random period of time */
         long rNum = rand() / RAND_DIVISOR;
         // fprintf(stderr, "Consumer sleeping for %ld seconds\n", rNum);
         sleep(rNum);
 
-        /* aquire the full lock */
+        /* Aquire the full lock */
         mthread_sem_wait(&full);
-        /* aquire the mutex lock */
+        
+        /* Aquire the mutex lock */
         mthread_mutex_lock(&mutex);
-        if (remove_item(&item))
-        {
+        
+        if (remove_item(&item)) {
             fprintf(stderr, "Consumer report error condition\n");
         }
-        else
-        {
+        else {
             printf("Consumer consumed %d\n", item);
         }
-        /* release the mutex lock */
+        
+        /* Release the mutex lock */
         mthread_mutex_unlock(&mutex);
-        /* signal empty */
+        
+        /* Signal empty */
         mthread_sem_post(&empty);
     }
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     /* Loop counter */
     int i;
 
     /* Verify the correct number of arguments were passed in */
-    if (argc != 4)
-    {
+    if (argc != 4) {
         fprintf(stderr, "USAGE:./main.out <Sleep Time> <Num of Producers> <Num of Consumers>\n");
         exit(EXIT_FAILURE);
     }
@@ -185,23 +178,21 @@ int main(int argc, char *argv[])
     int numCons       = atoi(argv[3]); /* Number of consumer threads */
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Semaphores\n");
+    printf("Thread Semaphores\n");
     printf("-------------------------------------------\n");
 
     /* Initialize the app */
     initializeData();
 
     /* Create the producer threads */
-    for (i = 0; i < numProd; i++)
-    {
+    for (i = 0; i < numProd; i++) {
         /* Create the thread */
         MCHECK(mthread_create(&tid, NULL, producer, NULL));
         printf("Producer thread %d created\n", i);
     }
 
     /* Create the consumer threads */
-    for (i = 0; i < numCons; i++)
-    {
+    for (i = 0; i < numCons; i++) {
         /* Create the thread */
         MCHECK(mthread_create(&tid, NULL, consumer, NULL));
         printf("Consumer Thread %d created\n", i);

@@ -32,9 +32,7 @@ mthread_mutex_t lock;
 void *thread1(void *arg) {
 	while(running == 1) {
 		mthread_mutex_lock(&lock);
-		// print("Thread1: locked\n");
 		c++;
-		// print("Thread1: unlocked\n");
 		mthread_mutex_unlock(&lock);
 		c1++;
 	}
@@ -43,9 +41,7 @@ void *thread1(void *arg) {
 void *thread2(void *arg) {
 	while(running == 1) {
 		mthread_mutex_lock(&lock);
-		// print("Thread2: locked\n");
 		c++;
-		// print("Thread2: unlocked\n");
 		mthread_mutex_unlock(&lock);
 		c2++;
 	}
@@ -54,9 +50,7 @@ void *thread2(void *arg) {
 void *thread3(void *arg) {
 	while(running == 1) {
 		mthread_mutex_lock(&lock);
-		// print("Thread3: locked\n");
 		c++;
-		// print("Thread3: unlocked\n");
 		mthread_mutex_unlock(&lock);
 		c3++;
 	}
@@ -65,9 +59,7 @@ void *thread3(void *arg) {
 void *thread4(void *arg) {
 	while(running == 1) {
 		mthread_mutex_lock(&lock);
-		// print("Thread4: locked\n");
 		c++;
-		// print("Thread4: unlocked\n");
 		mthread_mutex_unlock(&lock);
 		c4++;
 	}
@@ -76,9 +68,7 @@ void *thread4(void *arg) {
 void *thread5(void *arg) {
 	while(running == 1) {
 		mthread_mutex_lock(&lock);
-		// print("Thread5: locked\n");
 		c++;
-		// print("Thread5: unlocked\n");
 		mthread_mutex_unlock(&lock);
 		c5++;
 	}
@@ -92,7 +82,7 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
     fprintf(stdout, "----------------------------------\n");
-    fprintf(stdout, "Enter Testcases - Thread Mutex\n");
+    fprintf(stdout, "Thread Mutex\n");
     fprintf(stdout, "----------------------------------\n");
 
 	mthread_init();

@@ -39,7 +39,10 @@ void *inc_count(void *t) {
         mthread_mutex_lock(&count_mutex);
         count++;
 
-        /* Check the value of count and signal waiting thread when condition is reached.  Note that this occurs while mutex is locked. */
+        /*
+         * Check the value of count and signal waiting thread when condition is
+         * reached. Note that this occurs while mutex is locked.
+         */
 
         if (count == COUNT_LIMIT) {
             printf("inc_count()  : thread %ld, count = %d, threshold reached. ",
@@ -62,14 +65,15 @@ void *watch_count(void *t) {
 
     printf("Starting watch_count(): thread %ld\n", my_id);
 
-    /*
-  Lock mutex and wait for signal.  Note that the mthread_cond_wait routine
-  will automatically and atomically unlock mutex while it waits.
-  Also, note that if COUNT_LIMIT is reached before this routine is run by
-  the waiting thread, the loop will be skipped to prevent mthread_cond_wait
-  from never returning.
-  */
+    /**
+     * Lock mutex and wait for signal.  Note that the mthread_cond_wait routine
+     * will automatically and atomically unlock mutex while it waits.
+     * Also, note that if COUNT_LIMIT is reached before this routine is run by
+     * the waiting thread, the loop will be skipped to prevent mthread_cond_wait
+     * from never returning.
+    */
     mthread_mutex_lock(&count_mutex);
+
     while (count < COUNT_LIMIT) {
         printf("watch_count(): thread %ld, count = %d, Going into wait...\n", my_id, count);
         mthread_cond_wait(&count_threshold_cv, &count_mutex);
@@ -90,7 +94,7 @@ int main(int argc, char *argv[])
     mthread_t threads[3];
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Condition Variable\n");
+    printf("Thread Condition Variable\n");
     printf("-------------------------------------------\n");
 
     /* Initialize library, mutex and condition variable objects */

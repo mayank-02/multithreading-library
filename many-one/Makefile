@@ -35,12 +35,12 @@ AR := /usr/bin/ar
 RANLIB := /usr/bin/ranlib
 .PHONY: all clean lib exe docs
 
-DEBUG := 1
+DEBUG := 0
 ifeq ($(DEBUG),1)
 CFLAGS += -DDEBUG
 endif
 
-all: $(LIB) $(EXE) $(LIBSO) docs
+all: $(LIB) $(EXE) $(LIBSO)
 
 $(LIBSO) : $(OBJ)
 	$(CC) -shared $(OBJ) -o $@

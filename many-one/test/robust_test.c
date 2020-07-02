@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
     mthread_init();
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Attribute Handling\n");
+    printf("Thread Attribute Handling\n");
     printf("-------------------------------------------\n");
     printf("1] Handling detach state of a thread\n");
     {
@@ -144,10 +144,9 @@ int main(int argc, char **argv) {
             exit(EXIT_FAILURE);
         }
     }
-    // printf("Exit  Testcases - Thread Attribute Handling\n");
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Create\n");
+    printf("Thread Create\n");
     printf("-------------------------------------------\n");
     printf("1] Start Routine is NULL\n");
     {
@@ -185,10 +184,9 @@ int main(int argc, char **argv) {
         MCHECK(mthread_join(tid, NULL));
         fprintf(stdout, "TEST PASSED\n\n");
     }
-    // printf("Exit  Testcases - Thread Create\n");
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Join\n");
+    printf("Thread Join\n");
     printf("-------------------------------------------\n");
     printf("1] Invalid Thread Handle Passed\n");
     {
@@ -245,10 +243,9 @@ int main(int argc, char **argv) {
         }
         fprintf(stdout, "TEST PASSED\n\n");
     }
-    // printf("Exit  Testcases - Thread Join\n");
 
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Kill\n");
+    printf("Thread Kill\n");
     printf("-------------------------------------------\n");
     printf("1] Send invalid signal\n");
     {
@@ -280,10 +277,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    // printf("Exit  Testcases - Thread Kill\n");
-
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Thread Exit\n");
+    printf("Thread Exit\n");
     printf("-------------------------------------------\n");
     printf("1] Created Thread Uses Return To Exit\n");
     {
@@ -321,9 +316,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    // printf("Exit  Testcases - Thread Exit\n");
     printf("-------------------------------------------\n");
-    printf("Enter Testcases - Miscellaneous\n");
+    printf("Miscellaneous\n");
     printf("-------------------------------------------\n");
 
     printf("1] Create thread inside another thread\n");
@@ -351,8 +345,6 @@ int main(int argc, char **argv) {
         }
         printf("TEST PASSED\n\n");
     }
-
-    // printf("Exit  Testcases - Miscellaneous\n");
 
     return 0;
 }

@@ -33,9 +33,7 @@ mthread_spinlock_t lock;
 void *thread1(void *arg) {
 	while(running == 1) {
 		mthread_spin_lock(&lock);
-		// print("Thread1: locked\n");
 		c++;
-		// print("Thread1: unlocked\n");
 		mthread_spin_unlock(&lock);
 		c1++;
 	}
@@ -44,9 +42,7 @@ void *thread1(void *arg) {
 void *thread2(void *arg) {
 	while(running == 1) {
 		mthread_spin_lock(&lock);
-		// print("Thread2: locked\n");
 		c++;
-		// print("Thread2: unlocked\n");
 		mthread_spin_unlock(&lock);
 		c2++;
 	}
@@ -55,9 +51,7 @@ void *thread2(void *arg) {
 void *thread3(void *arg) {
 	while(running == 1) {
 		mthread_spin_lock(&lock);
-		// print("Thread3: locked\n");
 		c++;
-		// print("Thread3: unlocked\n");
 		mthread_spin_unlock(&lock);
 		c3++;
 	}
@@ -66,9 +60,7 @@ void *thread3(void *arg) {
 void *thread4(void *arg) {
 	while(running == 1) {
 		mthread_spin_lock(&lock);
-		// print("Thread4: locked\n");
 		c++;
-		// print("Thread4: unlocked\n");
 		mthread_spin_unlock(&lock);
 		c4++;
 	}
@@ -77,9 +69,7 @@ void *thread4(void *arg) {
 void *thread5(void *arg) {
 	while(running == 1) {
 		mthread_spin_lock(&lock);
-		// print("Thread5: locked\n");
 		c++;
-		// print("Thread5: unlocked\n");
 		mthread_spin_unlock(&lock);
 		c5++;
 	}
@@ -89,7 +79,7 @@ int main(int argc, char **argv) {
 	mthread_t th1, th2, th3, th4, th5;
 
     fprintf(stdout, "----------------------------------\n");
-    fprintf(stdout, "Enter Testcases - Thread Spinlocks\n");
+    fprintf(stdout, "Thread Spinlocks\n");
 
 	mthread_init();
 	mthread_spin_init(&lock);
@@ -121,14 +111,13 @@ int main(int argc, char **argv) {
 	fprintf(stdout, "t1 + t2 + t3 + t4 + t5  = %lld\n", c1+c2+c3+c4+c5);
 	fprintf(stdout, "Shared Variable         = %lld\n", c);
 	if(c1+c2+c3+c4+c5 == c) {
-		fprintf(stdout, "Test passed\n");
+		fprintf(stdout, "TEST PASSED\n");
 	}
 	else{
 		fprintf(stdout, "Test failed\n");
 	}
 	fflush(stdout);
 	fprintf(stdout, "----------------------------------\n");
-    fprintf(stdout, "Exit Testcases - Thread Spinlocks\n");
 
    return 0;
 }

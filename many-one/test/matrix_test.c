@@ -136,7 +136,7 @@ int main() {
     initMatrix(&c);
 
     /* Thread identifiers */
-    mthread_t tid[NUM_OF_THREADS], extra;
+    mthread_t tid[NUM_OF_THREADS];
 
     MCHECK(mthread_init());
 

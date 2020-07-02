@@ -12,9 +12,9 @@ else
 fi
 
 #   --leak-check=full    : each individual leak will be shown in detail
-#   --track-origins=yes  : tracks the origins of uninitialized values, 
+#   --track-origins=yes  : tracks the origins of uninitialized values,
 #                          which could be very useful for memory errors
-#   --show-leak-kinds=all: show all of "definite, indirect, possible, 
+#   --show-leak-kinds=all: show all of "definite, indirect, possible,
 #                          reachable" leak kinds in the "full" report
 #   --verbose            : tells you about unusual behavior of your program
 #   --log-file           : write to a file

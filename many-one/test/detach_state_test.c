@@ -75,7 +75,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
     printf("----------------------------------------------\n");
-    printf("Enter Testcases - Understanding Thread States \n");
+    printf("Understanding Thread States \n");
     printf("----------------------------------------------\n");
 
     start = clock();

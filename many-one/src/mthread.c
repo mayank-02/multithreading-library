@@ -233,8 +233,10 @@ int mthread_create(mthread_t *thread, const mthread_attr_t *attr, void *(*start_
 
     /* Make context for new thread */
     sigsetjmp(tmp->context, 1);
+    
     /* Change stack pointer to point to top of stack */
     tmp->context[0].__jmpbuf[JB_SP] = mangle((long int) tmp->stackaddr + tmp->stacksize - sizeof(long int));
+    
     /* Change program counter to point to start function */
 	tmp->context[0].__jmpbuf[JB_PC] = mangle((long int) mthread_start);
 
