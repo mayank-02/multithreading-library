@@ -4,7 +4,7 @@
 
 [![GitHub issues](https://img.shields.io/github/issues/mayank-02/multithreading-library)](https://github.com/mayank-02/multithreading-library)
 ![Contributions welcome](https://img.shields.io/badge/contributions-welcome-green.svg)
-[![License](https://img.shields.io/github/license/mayank-02/multithreading-library?color=blue)](https://opensource.org/licenses/GPL-3.0)
+[![License](https://img.shields.io/github/license/mayank-02/multithreading-library)](https://opensource.org/licenses/GPL-3.0)
 
 A lightweight C library based on one-one and many-one model for threading.
 
