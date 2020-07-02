@@ -1,27 +1,34 @@
-mthread
-=====
+<p align="center"><img width=20%  src="./doc/logo.png"></p>
 
-A lightweight and fast C library based on one-one and many-one model for threading.
+<p align="center"><img width=25% src="./doc/logo-mthread.png"></p>
+
+[![GitHub issues](https://img.shields.io/github/issues/mayank-02/multithreading-library)](https://github.com/mayank-02/multithreading-library)
+![Contributions welcome](https://img.shields.io/badge/contributions-welcome-green.svg)
+[![License](https://img.shields.io/github/license/mayank-02/multithreading-library?color=blue)](https://opensource.org/licenses/GPL-3.0)
+
+A lightweight C library based on one-one and many-one model for threading.
 
 ## Contents
-- [Building](#building)
-- [Using mthread in your project](#using-mthread-in-your-project)
-- [Usage and examples](#usage-and-examples)
-- [API documentation](#api-documentation)
-- [Running tests](#running-tests)
-- [Time and space complexity](#time-and-space-complexity)
-- [Development and contributing](#development-and-contributing)
-- [Acknowledgements](#acknowledgements)
 
++ [Building](#building)
++ [Using mthread in your project](#using-mthread-in-your-project)
++ [Usage and examples](#usage-and-examples)
++ [API documentation](#api-documentation)
++ [Running tests](#running-tests)
++ [Time and space complexity](#time-and-space-complexity)
++ [Development and contributing](#development-and-contributing)
++ [Acknowledgements](#acknowledgements)
 
 ## Building
 
 mthread uses make to build libraries (static and shared) and binaries (for tests).
 Execute following commands to build mthread using make:
 
-`make`
+``` bash
+make
+```
 
-This will create binaries in `bin/` directory and libraries (static and shared) in current directory.
+This will create binaries in `bin/` directory and libraries (static and shared) in the current directory.
 
 Optionally, you can run `sudo make install` to install mthread library on your machine (on Linux, this will usually install it to `usr/local/lib` and `usr/local/include`).
 
@@ -30,9 +37,10 @@ Optionally, you can run `sudo make install` to install mthread library on your m
 You can use mthread in you project by either directly copying header and source files from [one-one/](one-one/), or by linking mthread library (see [Building](#building) for instructions how to build mthread libraries).
 In any case, only thing that you have to do in your source files is to include `mthread.h`.
 
-To get you started quickly, let's take a look at a few ways to get simple Hello World project working.
+To get you started quickly, let's take a look at a few ways to get a simple Hello World project working.
 
 Our Hello World project has just one source file, `example.c` file, and it looks like this:
+
 ```c
 #include <stdio.h>
 #include "mthread.h"
@@ -44,17 +52,18 @@ void worker(void) {
 
 int main() {
     mthread_t tid;
-	mthread_init();
-	mthread_create(&tid, NULL, worker, NULL);
-	mthread_join(tid, NULL);
-	return 0;
+    mthread_init();
+    mthread_create(&tid, NULL, worker, NULL);
+    mthread_join(tid, NULL);
+    return 0;
 }
 ```
 
 ### Approach #1: Copying mthread header file and static library
 
-Instead of copying mthread source files, you could copy static library or a shared object (check [Building](#building) on how to create static library / shared object). We also need to copy mthread header files. We get following project structure:
+Instead of copying mthread source files, you could copy the static library or a shared object (check [Building](#building) on how to create static library / shared object). We also need to copy mthread header files. We get following project structure:
 In case of a static library:
+
 ```
 example.c       -> your program
 mthread.h       -> copied from mthread
@@ -62,13 +71,18 @@ libmthread.a    -> copied from mthread
 ```
 
 In case of shared object:
+
 ```
 example.c       -> your program
 mthread.h       -> copied from mthread
 libmthread.so   -> copied from mthread
 ```
 
-Now you can compile it with `gcc example.c -o example -L. -llibmthread`.
+Now you can compile it with
+
+```bash
+gcc example.c -o example -L. -llibmthread.
+```
 
 ### Approach #2: Install mthread library on machine (TODO)
 
@@ -76,11 +90,13 @@ Alternatively, you could avoid copying any mthread files and instead install lib
 If you get error message like `cannot open shared object file: No such file or directory`, make sure that your linker includes path where mthread was installed.
 
 ## Usage and examples
+
 To know more about how to use mthread library, check out the various tests written in the `test` directory of each model.
 
 ## API documentation
 
 + Types are named **mthread\_[type]\_t** (examples: mthread_t, mthread_cond_t, etc.)
+
 + Functions are called **mthread\_[type]\_[action]** with a few exceptions that are mthread_[action] and pertain to the API in whole and not a specific type.
 + Constants are named **MTHREAD\_[NAME]**
 
@@ -96,7 +112,7 @@ Alternatively, you can directly check [mthread.h](one-one/include/mthread.h) for
 ## Running tests
 
 Check [Building](#building) to see how to build binaries.
-To run each test, just run `./run_tests` from the root directory of both models. 
+To run each test, just run `./run_tests` from the root directory of both models.
 Default values are used for tests requiring command line arguments.
 
 ## Time and space complexity
@@ -112,7 +128,3 @@ The library maintains a queue for internal book keeping. Thus, the functions hav
 ## Development and contributing
 
 Feel free to send pull requests and raise issues.
-
-## Acknowledgements
-
-Abhijit (@abhijit13) - Mentoring and guidance throughout the project.
