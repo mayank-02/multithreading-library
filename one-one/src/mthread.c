@@ -61,14 +61,6 @@ static inline int tgkill(int tgid, int tid, int sig) {
 }
 
 /**
- * @brief Get thread identification
- * @return Thread ID on success; -1 on error
- */
-static inline pid_t gettid(void) {
-    return syscall(SYS_gettid);
-}
-
-/**
  * @brief Cleans up all malloc(3)ed and mmap(3)ed regions
  */
 static void cleanup_handler(void) {
